@@ -721,7 +721,7 @@ namespace Bobbing {
                 }
                 file >> j;
 
-                if (!j["children"].is_array()) {
+                if (!j.contains("FormID")) {
                     logger::error("Invalid config format in file {}", entry.path().string());
                     continue;
                 }
@@ -736,33 +736,54 @@ namespace Bobbing {
                 cfg.formID = formID;
                 cfg.filePath = entry.path().string();
 
+                // presence flags - used for merge logic
+                bool containsMinZ = false;
+                bool containsMaxZ = false;
+                bool containsMinRot = false;
+                bool containsMaxRot = false;
+                bool containsSpeed = false;
+                bool containsPhaseOffset = false;
+                bool containsActorInfluence = false;
+
                 // --- Z movement ---
-                if (j.contains("minZ")) cfg.minZ = j["minZ"].get<float>();
-                if (j.contains("maxZ")) cfg.maxZ = j["maxZ"].get<float>();
+                if (j.contains("minZ")) {
+                    containsMinZ = true;
+                    cfg.minZ = j["minZ"].get<float>();
+                }
+                if (j.contains("maxZ")) {
+                    containsMaxZ = true;
+                    cfg.maxZ = j["maxZ"].get<float>();
+                }
 
                 // --- Rotation ---
                 if (j.contains("minRot") && j["minRot"].is_array() && j["minRot"].size() == 3) {
+                    containsMinRot = true;
                     cfg.minRot.x = j["minRot"][0].get<float>();
                     cfg.minRot.y = j["minRot"][1].get<float>();
                     cfg.minRot.z = j["minRot"][2].get<float>();
                 }
 
                 if (j.contains("maxRot") && j["maxRot"].is_array() && j["maxRot"].size() == 3) {
+                    containsMaxRot = true;
                     cfg.maxRot.x = j["maxRot"][0].get<float>();
                     cfg.maxRot.y = j["maxRot"][1].get<float>();
                     cfg.maxRot.z = j["maxRot"][2].get<float>();
                 }
 
-                if (cfg.minZ > cfg.maxZ) std::swap(cfg.minZ, cfg.maxZ);
-                if (cfg.minRot.x > cfg.maxRot.x) std::swap(cfg.minRot.x, cfg.maxRot.x);
-                if (cfg.minRot.y > cfg.maxRot.y) std::swap(cfg.minRot.y, cfg.maxRot.y);
-                if (cfg.minRot.z > cfg.maxRot.z) std::swap(cfg.minRot.z, cfg.maxRot.z);
+                if (j.contains("speed")) {
+                    containsSpeed = true;
+                    cfg.speed = j["speed"].get<float>();
+                }
 
-                if (j.contains("speed")) cfg.speed = j["speed"].get<float>();
+                if (j.contains("phaseOffset")) {
+                    containsPhaseOffset = true;
+                    cfg.phaseOffset = j["phaseOffset"].get<float>();
+                }
 
-                if (j.contains("phaseOffset")) cfg.phaseOffset = j["phaseOffset"].get<float>();
-
-                if (j.contains("actorInfluence")) cfg.actorInfluence = j["actorInfluence"].get<float>();
+                if (j.contains("actorInfluence")) {
+                    containsActorInfluence = true;
+                    cfg.actorInfluence = j["actorInfluence"].get<float>();
+                }
 
                 for (const auto& child : j["children"]) {
                     if (!child.is_string()) {
@@ -777,9 +798,34 @@ namespace Bobbing {
                     }
                     cfg.childrens.insert(childFormID);
                 }
+
+                // Merge or insert
                 {
                     std::unique_lock lock(configsMutex);
-                    configs[formID] = cfg;
+                    auto it = configs.find(formID);
+                    if (it == configs.end()) {
+                        // new
+                        configs[formID] = cfg;
+                        logger::info("Config for {:08X} loaded", formID);
+                    } else {
+                        // merge
+                        BobbingConfig& existing = it->second;
+
+                        // children: union
+                        for (auto cid : cfg.childrens) existing.childrens.insert(cid);
+
+                        // overwrite existing
+                        if (containsMinZ) existing.minZ = cfg.minZ;
+                        if (containsMaxZ) existing.maxZ = cfg.maxZ;
+                        if (containsMinRot) existing.minRot = cfg.minRot;
+                        if (containsMaxRot) existing.maxRot = cfg.maxRot;
+                        if (containsSpeed) existing.speed = cfg.speed;
+                        if (containsPhaseOffset) existing.phaseOffset = cfg.phaseOffset;
+                        if (containsActorInfluence) existing.actorInfluence = cfg.actorInfluence;
+
+                        existing.filePath = entry.path().string();
+                        logger::info("Config for {:08X} updated", formID);
+                    }
                 }
             }
         }
