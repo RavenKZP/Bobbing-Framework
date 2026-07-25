@@ -47,6 +47,7 @@ namespace Hooks {
                                 logger::info("BobbingFramework RefLoad {} ms", elapsed.count());
                             }
                         } else {
+                            logger::debug("Still Loading ref {:08X}", ref->GetFormID());
                             LoadQueue(refHandle);
                         }
                     }
@@ -64,6 +65,23 @@ namespace Hooks {
             if (BobbingManager->HasConfig(formID) || BobbingManager->HasConfig(baseID) ||
                 BobbingManager->IsPending(formID)) {
                 auto thisHandle = a_this->GetHandle();
+                logger::debug("Loading ref {:08X}", formID);
+                LoadQueue(thisHandle);
+            }
+        }
+        return Load3D_(a_this, a_backgroundLoading);
+    }
+
+    RE::NiAVObject* HazardLoadHook::Load3D(RE::TESObjectREFR* a_this, bool a_backgroundLoading) {
+        static auto* conf = Config::GetSingleton();
+        if (conf->ModActive) {
+            auto BobbingManager = Bobbing::Manager::GetSingleton();
+            auto formID = a_this->GetFormID();
+            auto baseID = a_this->GetBaseObject()->GetFormID();
+            if (BobbingManager->HasConfig(formID) || BobbingManager->HasConfig(baseID) ||
+                BobbingManager->IsPending(formID)) {
+                auto thisHandle = a_this->GetHandle();
+                logger::debug("Loading ref {:08X}", formID);
                 LoadQueue(thisHandle);
             }
         }

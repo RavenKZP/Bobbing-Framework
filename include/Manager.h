@@ -352,6 +352,9 @@ namespace Bobbing {
 
                 RE::NiPoint3 centerOfMass = UpdateOccupantsAndGetCenter(parentRef);
 
+                auto minAngles = cfg.minRot;
+                auto maxAngles = cfg.maxRot;
+
                 if (cfg.actorInfluence > 0.0f) {
                     RE::NiPoint3 parentRefPos = parentRef->GetPosition();
                     if (centerOfMass != parentRefPos) {
@@ -376,6 +379,9 @@ namespace Bobbing {
 
                         xRotWave = std::clamp(xRotWave + rollBias, 0.0f, 1.0f);
                         yRotWave = std::clamp(yRotWave + pitchBias, 0.0f, 1.0f);
+
+                        minAngles *= 2;
+                        maxAngles *= 2;
                     }
                 }
 
@@ -396,9 +402,9 @@ namespace Bobbing {
 
                 // rotation
                 RE::NiPoint3 rot;
-                rot.x = std::lerp(cfg.minRot.x, cfg.maxRot.x, xRotWave);
-                rot.y = std::lerp(cfg.minRot.y, cfg.maxRot.y, yRotWave);
-                rot.z = std::lerp(cfg.minRot.z, cfg.maxRot.z, zRotWave);
+                rot.x = std::lerp(minAngles.x, maxAngles.x, xRotWave);
+                rot.y = std::lerp(minAngles.y, maxAngles.y, yRotWave);
+                rot.z = std::lerp(minAngles.z, maxAngles.z, zRotWave);
 
                 RE::NiMatrix3 RotMatrix;
                 RotMatrix.EulerAnglesToAxesZXY(rot);

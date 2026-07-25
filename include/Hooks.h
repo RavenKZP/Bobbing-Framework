@@ -17,11 +17,19 @@ namespace Hooks {
         static inline REL::Relocation<decltype(Load3D)> Load3D_;
     };
 
+    struct HazardLoadHook {
+        static RE::NiAVObject* Load3D(RE::TESObjectREFR* a_this, bool a_backgroundLoading);
+        static inline REL::Relocation<decltype(Load3D)> Load3D_;
+    };
+
     inline void InstallHooks() {
         UpdateHook::Update_ = REL::Relocation<std::uintptr_t>(RE::VTABLE_PlayerCharacter[0])
                                   .write_vfunc(REL::Relocate(0xAD, 0xAD, 0xAF), UpdateHook::Update);
 
         RefLoadHook::Load3D_ =
             REL::Relocation<std::uintptr_t>(RE::VTABLE_TESObjectREFR[0]).write_vfunc(0x6A, RefLoadHook::Load3D);
+
+        HazardLoadHook::Load3D_ =
+            REL::Relocation<std::uintptr_t>(RE::VTABLE_Hazard[0]).write_vfunc(0x6A, HazardLoadHook::Load3D);
     }
 }
