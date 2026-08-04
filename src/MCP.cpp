@@ -30,46 +30,6 @@ namespace MCP {
         ImGuiMCP::Checkbox("Enable Time Logging", &cfg->EnableTimeLogging);
     }
 
-    /*
-    static void RefreshRefCollision(RE::TESObjectREFR* a_ref, RE::bhkNiCollisionObject::Flag flag) {
-        if (const auto root = a_ref->Get3D(); root) {
-            const auto cell = a_ref->GetParentCell();
-
-            root->SetCollisionLayer(RE::COL_LAYER::kAnimStatic);
-
-            if (auto colObj = root->GetCollisionObject()) {
-                colObj->flags.set(flag);
-            }
-        }
-    }
-    */
-
-    /*
-    static void MakeRefColisionDynamic(RE::TESObjectREFR* a_ref) {
-        if (auto root = a_ref->Get3D()) {
-            root->SetCollisionLayer(RE::COL_LAYER::kAnimStatic);
-            root->SetMotionType(RE::hkpMotion::MotionType::kBoxInertia);
-
-            if (auto colObj = root->GetCollisionObject()) {
-                colObj->flags.set(RE::bhkNiCollisionObject::Flag::kActive);
-                colObj->flags.set(RE::bhkNiCollisionObject::Flag::kSetLocal);
-                colObj->flags.set(RE::bhkNiCollisionObject::Flag::kSyncOnUpdate);
-                if (auto colBody = colObj->body.get()) {
-                    // logger::info("RTTI: {}", typeid(*colBody).name());
-                    if (auto rigidBody = colBody->AsBhkRigidBody()) {
-                        // logger::info("RTTI: {}", typeid(*rigidBody).name());
-                        if (auto rigidBodyT = skyrim_cast<RE::bhkRigidBodyT*>(rigidBody)) {
-                            // logger::info("RTTI: {}", typeid(*rigidBodyT).name());
-                        } else {
-                            // logger::warn("Collision body is not bhkRigidBodyT");
-                        }
-                    }
-                }
-            }
-        }
-    }
-    */
-
     static void DrawObjectBoundsBox(BoundaryBox points, int lifetimeMS,
                                     float thickness) {
 
@@ -124,124 +84,10 @@ namespace MCP {
                     return;
                 }
 
-                /*
-                if (const auto root = ref->Get3D(); root) {
-                    if (auto colObj = root->GetCollisionObject()) {
-                        if (auto colBody = colObj->body.get()) {
-                            ImGuiMCP::Text("RTTI: %s", typeid(*colBody).name());
-                            if (auto rigidBody = colBody->AsBhkRigidBody()) {
-                                ImGuiMCP::Text("RTTI: %s", typeid(*rigidBody).name());
-                                if (auto rigidBodyT = skyrim_cast<RE::bhkRigidBodyT*>(rigidBody)) {
-                                    ImGuiMCP::Text("Collision body is bhkRigidBodyT");
-                                } else {
-                                    ImGuiMCP::Text("Collision body is not bhkRigidBodyT");
-                                }
-                            }
-                        }
-                    }
-                    auto colLayer = root->GetCollisionLayer();
-                    ImGuiMCP::Text("Collision Layer: %d", colLayer);
-
-                    auto flags = root->GetFlags();
-                    ImGuiMCP::Text("Flags: %d", flags);
-                }
-
-                if (ImGuiMCP::Button("MakeRefColisionDynamic")) {
-                    MakeRefColisionDynamic(ref);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("Update3DPosition")) {
-                    ref->Update3DPosition(true);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("SetAltered")) {
-                    ref->data.objectReference->SetAltered(true);
-                    ref->SetAltered(true);
-                }
-                if (ImGuiMCP::Button("UpdateCollisionObject true")) {
-                    ref->Get3D()->UpdateCollisionObject(true);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("UpdateCollisionObject false")) {
-                    ref->Get3D()->UpdateCollisionObject(false);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("MotionType::kKeyframed true")) {
-                    ref->SetMotionType(RE::hkpMotion::MotionType::kKeyframed, true);
-                }
-
-                ImGuiMCP::Text("RefreshRefCollision:");
-                if (ImGuiMCP::Button("kReset")) {
-                    RefreshRefCollision(ref, RE::bhkNiCollisionObject::Flag::kReset);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("kActive")) {
-                    RefreshRefCollision(ref, RE::bhkNiCollisionObject::Flag::kActive);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("kDebugDisplay")) {
-                    RefreshRefCollision(ref, RE::bhkNiCollisionObject::Flag::kDebugDisplay);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("kNotify")) {
-                    RefreshRefCollision(ref, RE::bhkNiCollisionObject::Flag::kNotify);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("kSetLocal")) {
-                    RefreshRefCollision(ref, RE::bhkNiCollisionObject::Flag::kSetLocal);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("kSyncOnUpdate")) {
-                    RefreshRefCollision(ref, RE::bhkNiCollisionObject::Flag::kSyncOnUpdate);
-                }
-
-                RE::NiUpdateData updData;
-                updData.flags = RE::NiUpdateData::Flag::kNone;
-                updData.time = 0.0f;
-                if (ImGuiMCP::Button("UpdateWorldData")) {
-                    ref->Get3D()->UpdateWorldData(&updData);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("UpdateTransformAndBounds")) {
-                    ref->Get3D()->UpdateTransformAndBounds(updData);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("Update")) {
-                    ref->Get3D()->Update(updData);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("UpdateWorldBound")) {
-                    ref->Get3D()->UpdateWorldBound();
-                }
-                if (ImGuiMCP::Button("Enable")) {
-                    ref->Enable(false);
-                }
-                ImGuiMCP::SameLine();
-                if (ImGuiMCP::Button("Disable")) {
-                    ref->Disable();
-                }
-                */
-
-                static std::string filename;
-                static std::vector<RE::TESObjectREFR*> childrens;
-                static RE::NiPoint2 minMaxZ = {-5.0f, 5.0f};
-                static float maxZ = 10.0f;
-
-                static RE::NiPoint3 minRot = {-0.01f, -0.01f, -0.01f};  // X, Y, Z
-                static RE::NiPoint3 maxRot = {0.01f, 0.01f, 0.01f};     // X, Y, Z
-
-                static float speed = 1.0f;
-                static float phaseOffset = 0.0f;
-                static float actorInfluence = 0.0f;
-
-                static float offsetPosX = 0.0f;
-                static float offsetNegX = 0.0f;
-                static float offsetPosY = 0.0f;
-                static float offsetNegY = 0.0f;
-                static float offsetPosZ = 0.0f;
-                static float offsetNegZ = 0.0f;
-
                 static bool drawBBox = false;
+                static std::vector<RE::TESObjectREFR*> childrens;
+
+                static BobbingConfig configCreator;
 
                 auto base = ref->GetBaseObject();
                 auto BobbingMgr = Bobbing::Manager::GetSingleton();
@@ -249,71 +95,25 @@ namespace MCP {
                 bool hasRefConfig = BobbingMgr->HasConfig(ref->GetFormID());
                 bool hasBaseConfig = BobbingMgr->HasConfig(base->GetFormID());
 
-                if (lastRef != ref) {
+                if (lastRef != ref || ImGuiMCP::Button("Reset all settings to default")) {
                     drawBBox = false;
                     lastRef = ref;
-                    filename.erase();
-                    minMaxZ = {-5.0f, 5.0f};
-                    minRot = {-0.01f, -0.01f, -0.01f};
-                    maxRot = {0.01f, 0.01f, 0.01f};
-
-                    speed = 1.0f;
-                    phaseOffset = 0.0f;
-                    actorInfluence = 0.0f;
-
-                    offsetPosX = 0.0f;
-                    offsetNegX = 0.0f;
-                    offsetPosY = 0.0f;
-                    offsetNegY = 0.0f;
-                    offsetPosZ = 0.0f;
-                    offsetNegZ = 0.0f;
+                    configCreator = {};
 
                     childrens.clear();
 
                     if (hasRefConfig) {
                         auto cfg = BobbingMgr->GetConfig(ref->GetFormID());
-                        minMaxZ.x = cfg.minZ;
-                        minMaxZ.y = cfg.maxZ;
-                        minRot = cfg.minRot;
-                        maxRot = cfg.maxRot;
-                        speed = cfg.speed;
-                        phaseOffset = cfg.phaseOffset;
-                        actorInfluence = cfg.actorInfluence;
-                        if (childrens.empty()) {
-                            for (auto& childID : cfg.childrens) {
-                                auto form = RE::TESForm::LookupByID(childID);
-                                auto childRef = form ? form->As<RE::TESObjectREFR>() : nullptr;
-                                if (childRef) {
-                                    childrens.push_back(childRef);
-                                }
+                        configCreator = cfg;
+                        for (auto& childID : cfg.childrens) {
+                            auto form = RE::TESForm::LookupByID(childID);
+                            auto childRef = form ? form->As<RE::TESObjectREFR>() : nullptr;
+                            if (childRef) {
+                                childrens.push_back(childRef);
                             }
                         }
                     }
                 }
-                /*
-                auto refNode = ref->Get3D();
-                auto nodeVectX = refNode->local.rotate.GetVectorX();
-                auto nodeVectY = refNode->local.rotate.GetVectorY();
-                auto nodeVectZ = refNode->local.rotate.GetVectorZ();
-                bool changed = false;
-                if (ImGuiMCP::SliderFloat3("Ref Rotation X", &nodeVectX.x, -5.0f, 5.0f)) {
-                    changed = true;
-                }
-                if (ImGuiMCP::SliderFloat3("Ref Rotation Y", &nodeVectY.y, -5.0f, 5.0f)) {
-                    changed = true;
-                }
-                if (ImGuiMCP::SliderFloat3("Ref Rotation Z", &nodeVectZ.z, -5.0f, 5.0f)) {
-                    changed = true;
-                }
-
-                if (changed) {
-                    refNode->local.rotate = RE::NiMatrix3(nodeVectZ, nodeVectY, nodeVectX);
-                    RE::NiUpdateData updData;
-                    updData.flags = RE::NiUpdateData::Flag::kNone;
-                    updData.time = 0.0f;
-                    refNode->Update(updData);
-                }
-                */
 
                 std::string refLabel = hasRefConfig ? "Update Ref Config" : "Add Ref Config";
                 std::string baseLabel = hasBaseConfig ? "Update Base Config" : "Add Base Config";
@@ -321,37 +121,71 @@ namespace MCP {
                 bool updateOffsets = false;
 
                 // --- Z movement ---
-                ImGuiMCP::Text("Bobbing - Position Z");
-                ImGuiMCP::SliderFloat2("Min / Max;", &minMaxZ.x, -10.0f, 10.0f);
-                ImGuiMCP::InputFloat2("Min / Max:", &minMaxZ.x);
+                ImGuiMCP::Text("Bobbing - Position");
+                ImGuiMCP::SliderFloat3("Min Pos;", &configCreator.positionMin.x, -10.0f, 10.0f);
+                ImGuiMCP::SliderFloat3("Max Pos;", &configCreator.positionMax.x, -10.0f, 10.0f);
+                ImGuiMCP::InputFloat3("Min Pos:", &configCreator.positionMin.x);
+                ImGuiMCP::InputFloat3("Max Pos:", &configCreator.positionMax.x);
+
+                if (ImGuiMCP::Button("Reset Position")) {
+                    configCreator.positionMin = {0.0f, 0.0f, -5.0f};
+                    configCreator.positionMax = {0.0f, 0.0f, 5.0f};
+                }
 
                 // --- Rotation ---
                 ImGuiMCP::Separator();
                 ImGuiMCP::Text("Bobbing - Rotation");
+                ImGuiMCP::SliderFloat3("Min Rot;", &configCreator.rotationMin.x, -0.2f, 0.2f);
+                ImGuiMCP::SliderFloat3("Max Rot;", &configCreator.rotationMax.x, -0.2f, 0.2f);
+                ImGuiMCP::InputFloat3("Min Rot:", &configCreator.rotationMin.x);
+                ImGuiMCP::InputFloat3("Max Rot:", &configCreator.rotationMax.x);
 
-                ImGuiMCP::SliderFloat3("Min Rot;", &minRot.x, -0.2f, 0.2f);
-                ImGuiMCP::SliderFloat3("Max Rot;", &maxRot.x, -0.2f, 0.2f);
-                ImGuiMCP::InputFloat3("Min Rot:", &minRot.x);
-                ImGuiMCP::InputFloat3("Max Rot:", &maxRot.x);
+                if (configCreator.positionMin.x > configCreator.positionMax.x)
+                    std::swap(configCreator.positionMin.x, configCreator.positionMax.x);
+                if (configCreator.positionMin.y > configCreator.positionMax.y)
+                    std::swap(configCreator.positionMin.y, configCreator.positionMax.y);
+                if (configCreator.positionMin.z > configCreator.positionMax.z)
+                    std::swap(configCreator.positionMin.z, configCreator.positionMax.z);
 
-                if (minMaxZ.x > minMaxZ.y) std::swap(minMaxZ.x, minMaxZ.y);
-                if (minRot.x > maxRot.x) std::swap(minRot.x, maxRot.x);
-                if (minRot.y > maxRot.y) std::swap(minRot.y, maxRot.y);
-                if (minRot.z > maxRot.z) std::swap(minRot.z, maxRot.z);
+                if (configCreator.rotationMin.x > configCreator.rotationMax.x)
+                    std::swap(configCreator.rotationMin.x, configCreator.rotationMax.x);
+                if (configCreator.rotationMin.y > configCreator.rotationMax.y)
+                    std::swap(configCreator.rotationMin.y, configCreator.rotationMax.y);
+                if (configCreator.rotationMin.z > configCreator.rotationMax.z)
+                    std::swap(configCreator.rotationMin.z, configCreator.rotationMax.z);
+
+                if (ImGuiMCP::Button("Reset Rotation")) {
+                    configCreator.rotationMin = {-0.01f, -0.01f, -0.01f};
+                    configCreator.rotationMin = {0.01f, 0.01f, 0.01f};
+                }
 
                 if (ImGuiMCP::CollapsingHeader("Advanced Options")) {
-                    ImGuiMCP::SliderFloat("Speed;", &speed, 0.01f, 1.0f);
-                    ImGuiMCP::InputFloat("Speed:", &speed);
+                    ImGuiMCP::SliderFloat3("Position Speed;", &configCreator.speedPos.x, 0.0f, 5.0f);
+                    ImGuiMCP::InputFloat3("Position Speed:", &configCreator.speedPos.x);
+                    ImGuiMCP::SliderFloat3("Rotation Speed;", &configCreator.speedRot.x, 0.0f, 5.0f);
+                    ImGuiMCP::InputFloat3("Rotation Speed:", &configCreator.speedRot.x);
+                    if (ImGuiMCP::Button("Randomize Speeds")) {
+                        configCreator.speedPos.x = Utils::RandomFloat(0.9f, 1.1f);
+                        configCreator.speedPos.y = Utils::RandomFloat(0.9f, 1.1f);
+                        configCreator.speedPos.z = Utils::RandomFloat(0.9f, 1.1f);
+                        configCreator.speedRot.x = Utils::RandomFloat(0.9f, 1.1f);
+                        configCreator.speedRot.y = Utils::RandomFloat(0.9f, 1.1f);
+                        configCreator.speedRot.z = Utils::RandomFloat(0.9f, 1.1f);
+                    }
+                    ImGuiMCP::SameLine();
+                    if (ImGuiMCP::Button("Reset Speeds")) {
+                        configCreator.speedPos = {1.0f, 1.0f, 1.0f};
+                        configCreator.speedRot = {1.0f, 1.0f, 1.0f};
+                    }
 
-                    ImGuiMCP::SliderFloat("Phase Offset;", &phaseOffset, -1.0f, 1.0f);
-                    ImGuiMCP::InputFloat("Phase Offset:", &phaseOffset);
+                    ImGuiMCP::SliderFloat("Phase Offset;", &configCreator.phaseOffset, -1.0f, 1.0f);
+                    ImGuiMCP::InputFloat("Phase Offset:", &configCreator.phaseOffset);
 
-                    ImGuiMCP::SliderFloat("Actor Influence;", &actorInfluence, 0.0f, 10.0f);
-                    ImGuiMCP::InputFloat("Actor Influence:", &actorInfluence);
+                    ImGuiMCP::SliderFloat("Actor Influence;", &configCreator.actorInfluence, 0.0f, 10.0f);
+                    ImGuiMCP::InputFloat("Actor Influence:", &configCreator.actorInfluence);
                 }
 
                 if (ImGuiMCP::CollapsingHeader("Childrens Options")) {
-
                     ImGuiMCP::Checkbox("Draw Boundary Box", &drawBBox);
 
                     const ImGuiMCP::ImVec4 uiRedPos{1.00f, 0.55f, 0.55f, 1.0f};
@@ -362,42 +196,41 @@ namespace MCP {
                     const ImGuiMCP::ImVec4 uiBlueNeg{0.30f, 0.30f, 0.85f, 1.0f};
 
                     ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_Text, uiRedPos);
-                    if (ImGuiMCP::DragFloat("Pos X", &offsetPosX, 0.1f)) {
+                    if (ImGuiMCP::DragFloat("Pos X", &configCreator.BBoxMaxOffset.x, 0.1f)) {
                         updateOffsets = true;
                     }
                     ImGuiMCP::PopStyleColor();
 
                     ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_Text, uiRedNeg);
-                    if (ImGuiMCP::DragFloat("Neg X", &offsetNegX, 0.1f)) {
+                    if (ImGuiMCP::DragFloat("Neg X", &configCreator.BBoxMinOffset.x, 0.1f)) {
                         updateOffsets = true;
                     }
                     ImGuiMCP::PopStyleColor();
 
                     ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_Text, uiGreenPos);
-                    if (ImGuiMCP::DragFloat("Pos Y", &offsetPosY, 0.1f)) {
+                    if (ImGuiMCP::DragFloat("Pos Y", &configCreator.BBoxMaxOffset.y, 0.1f)) {
                         updateOffsets = true;
                     }
                     ImGuiMCP::PopStyleColor();
 
                     ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_Text, uiGreenNeg);
-                    if (ImGuiMCP::DragFloat("Neg Y", &offsetNegY, 0.1f)) {
+                    if (ImGuiMCP::DragFloat("Neg Y", &configCreator.BBoxMinOffset.y, 0.1f)) {
                         updateOffsets = true;
                     }
                     ImGuiMCP::PopStyleColor();
 
                     ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_Text, uiBluePos);
-                    if (ImGuiMCP::DragFloat("Pos Z", &offsetPosZ, 0.1f)) {
+                    if (ImGuiMCP::DragFloat("Pos Z", &configCreator.BBoxMaxOffset.z, 0.1f)) {
                         updateOffsets = true;
                     }
                     ImGuiMCP::PopStyleColor();
 
                     ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_Text, uiBlueNeg);
-                    if (ImGuiMCP::DragFloat("Neg Z", &offsetNegZ, 0.1f)) {
+                    if (ImGuiMCP::DragFloat("Neg Z", &configCreator.BBoxMinOffset.z, 0.1f)) {
                         updateOffsets = true;
                     }
                     ImGuiMCP::PopStyleColor();
 
-                    
                     static ImGuiMCP::ImVec4 MCPHighlightColor{0.0f, 1.0f, 0.0f, 1.0f};
                     static RE::NiColorA HighlightColor(0.0f, 1.0f, 0.0f, 1.0f);
 
@@ -418,23 +251,23 @@ namespace MCP {
                         childrens.clear();
                     }
 
-                    auto c = Utils::GetBoundingBox(ref);
+                    auto Bbox = Utils::GetBoundingBox(ref);
 
                     // --- Compute center ---
                     RE::NiPoint3 center{0, 0, 0};
-                    for (auto& p : c) center += p;
+                    for (auto& point : Bbox) center += point;
                     center /= 8.0f;
 
                     // --- Compute axes + extents ---
-                    RE::NiPoint3 axisX = c[1] - c[0];
+                    RE::NiPoint3 axisX = Bbox[1] - Bbox[0];
                     float extentX = axisX.Length();
                     axisX /= extentX;
 
-                    RE::NiPoint3 axisY = c[3] - c[0];
+                    RE::NiPoint3 axisY = Bbox[3] - Bbox[0];
                     float extentY = axisY.Length();
                     axisY /= extentY;
 
-                    RE::NiPoint3 axisZ = c[4] - c[0];
+                    RE::NiPoint3 axisZ = Bbox[4] - Bbox[0];
                     float extentZ = axisZ.Length();
                     axisZ /= extentZ;
 
@@ -447,33 +280,35 @@ namespace MCP {
                         RE::NiPoint3 d = point - center;
 
                         float dx = d.Dot(axisX);
-                        if (dx > (extentX + offsetPosX)) return false;
-                        if (dx < -(extentX + offsetNegX)) return false;
+                        if (dx > (extentX + configCreator.BBoxMaxOffset.x)) return false;
+                        if (dx < -(extentX + configCreator.BBoxMinOffset.x)) return false;
 
                         float dy = d.Dot(axisY);
-                        if (dy > (extentY + offsetPosY)) return false;
-                        if (dy < -(extentY + offsetNegY)) return false;
+                        if (dy > (extentY + configCreator.BBoxMaxOffset.y)) return false;
+                        if (dy < -(extentY + configCreator.BBoxMinOffset.y)) return false;
 
                         float dz = d.Dot(axisZ);
-                        if (dz > (extentZ + offsetPosZ)) return false;
-                        if (dz < -(extentZ + offsetNegZ)) return false;
+                        if (dz > (extentZ + configCreator.BBoxMaxOffset.z)) return false;
+                        if (dz < -(extentZ + configCreator.BBoxMinOffset.z)) return false;
 
                         return true;
                     };
 
                     // --- Broad phase radius ---
                     float radius = 0.0f;
-                    for (auto& p : c) {
-                        float dist = (p - center).Length();
+                    for (auto& point : Bbox) {
+                        float dist = (point - center).Length();
                         if (dist > radius) radius = dist;
                     }
 
-                    float maxOffset = std::max({fabs(offsetPosX), fabs(offsetNegX), fabs(offsetPosY), fabs(offsetNegY),
-                                                fabs(offsetPosZ), fabs(offsetNegZ)});
+                    float maxOffset =
+                        std::max({fabs(configCreator.BBoxMaxOffset.x), fabs(configCreator.BBoxMinOffset.x),
+                                  fabs(configCreator.BBoxMaxOffset.y), fabs(configCreator.BBoxMinOffset.y),
+                                  fabs(configCreator.BBoxMaxOffset.z), fabs(configCreator.BBoxMinOffset.z)});
 
                     radius += maxOffset;
 
-                    auto AdjustedBBox = c;
+                    auto AdjustedBBox = Bbox;
 
                     for (size_t i = 0; i < 8; ++i) {
                         RE::NiPoint3 rel = AdjustedBBox[i] - center;
@@ -484,9 +319,12 @@ namespace MCP {
 
                         RE::NiPoint3 ofs{0.0f, 0.0f, 0.0f};
 
-                        ofs += (dx >= 0.0f ? axisX : -axisX) * (dx >= 0.0f ? offsetPosX : offsetNegX);
-                        ofs += (dy >= 0.0f ? axisY : -axisY) * (dy >= 0.0f ? offsetPosY : offsetNegY);
-                        ofs += (dz >= 0.0f ? axisZ : -axisZ) * (dz >= 0.0f ? offsetPosZ : offsetNegZ);
+                        ofs += (dx >= 0.0f ? axisX : -axisX) *
+                               (dx >= 0.0f ? configCreator.BBoxMaxOffset.x : configCreator.BBoxMinOffset.x);
+                        ofs += (dy >= 0.0f ? axisY : -axisY) *
+                               (dy >= 0.0f ? configCreator.BBoxMaxOffset.y : configCreator.BBoxMinOffset.y);
+                        ofs += (dz >= 0.0f ? axisZ : -axisZ) *
+                               (dz >= 0.0f ? configCreator.BBoxMaxOffset.z : configCreator.BBoxMinOffset.z);
 
                         AdjustedBBox[i] += ofs;
                     }
@@ -501,6 +339,7 @@ namespace MCP {
                             if (!other || other == ref) return RE::BSContainer::ForEachResult::kContinue;
                             if (other->IsDynamicForm()) return RE::BSContainer::ForEachResult::kContinue;
                             if (other->IsActor()) return RE::BSContainer::ForEachResult::kContinue;
+                            if (other->IsWater()) return RE::BSContainer::ForEachResult::kContinue;
                             auto pos = other->GetPosition();
                             if (!isInsideOBB(pos)) return RE::BSContainer::ForEachResult::kContinue;
                             if (auto node = other->Get3D()) {
@@ -511,12 +350,177 @@ namespace MCP {
                         });
                     }
 
-
-                    static char addChildFormID[255];      // hex input for manual add
+                    static char addChildFormID[255];  // hex input for manual add
+                    static char Filter[255];
                     static bool keepChildListOpen = false;  // keep header open when removing/adding
 
-                    std::string label = std::format("Selected Ref has Childrens: {}", childrens.size());
+                    ImGuiMCP::InputText("Add Child FormID (hex)", addChildFormID, 255);
+                    ImGuiMCP::SameLine();
+                    if (ImGuiMCP::Button("Add Child")) {
+                        // trim and optional 0x
+                        std::string s = addChildFormID;
+                        // remove spaces
+                        s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
+                        if (!s.empty()) {
+                            try {
+                                if (s.rfind("0x", 0) == 0 || s.rfind("0X", 0) == 0) s = s.substr(2);
+                                auto fid = static_cast<RE::FormID>(std::stoul(s, nullptr, 16));
+                                if (auto form = RE::TESForm::LookupByID(fid)) {
+                                    if (auto childRef = form->As<RE::TESObjectREFR>()) {
+                                        bool exists = false;
+                                        for (auto* child : childrens) {
+                                            if (child->GetFormID() == childRef->GetFormID()) {
+                                                exists = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!exists) {
+                                            childrens.push_back(childRef);
+                                            keepChildListOpen = true;
+                                        }
+                                    }
+                                }
+                            } catch (...) {
+                                // ignore parse errors
+                            }
+                        }
+                    }
+                    ImGuiMCP::InputText("Filter", Filter, 255);
 
+                    std::set<RE::FormType> typesSet;
+                    for (auto* child : childrens) {
+                        if (!child) continue;
+                        if (child->IsDynamicForm()) continue;
+                        if (auto childBase = child->GetBaseObject()) {
+                            typesSet.insert(childBase->GetFormType());
+                        }
+                    }
+
+                    std::vector<RE::FormType> typesVec(typesSet.begin(), typesSet.end());
+
+                    // persistent selection set
+                    static std::unordered_set<RE::FormType> selectedTypeSet;
+
+                    // UI: checkboxes 5 per line
+                    ImGuiMCP::Text("Filter childrens by object type (multi-select):");
+                    int cols = 5;
+                    int idx = 0;
+                    for (auto t : typesVec) {
+                        const auto typeName = FormTypeToString(t);
+                        const std::string label = std::format("{}##type{}", typeName, static_cast<int>(t));
+                        bool checked = selectedTypeSet.contains(t);
+                        if (ImGuiMCP::Checkbox(label.c_str(), &checked)) {
+                            if (checked) {
+                                selectedTypeSet.insert(t);
+                            } else {
+                                selectedTypeSet.erase(t);
+                            }
+                        }
+                        ++idx;
+                        if ((idx % cols) != 0 && idx < typesVec.size()) ImGuiMCP::SameLine();
+                    }
+
+                    if (ImGuiMCP::Button("Highlight selected types")) {
+                        if (selectedTypeSet.empty()) {
+                        } else {
+                            for (auto* child : childrens) {
+                                if (!child) continue;
+                                if (auto childBase = child->GetBaseObject()) {
+                                    if (selectedTypeSet.contains(childBase->GetFormType())) {
+                                        child->Get3D()->TintScenegraph(HighlightColor);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ImGuiMCP::SameLine();
+                    if (ImGuiMCP::Button("UnHighlight selected types")) {
+                        if (selectedTypeSet.empty()) {
+                        } else {
+                            for (auto* child : childrens) {
+                                if (!child) continue;
+                                if (auto childBase = child->GetBaseObject()) {
+                                    if (selectedTypeSet.contains(childBase->GetFormType())) {
+                                        child->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ImGuiMCP::SameLine();
+                    if (ImGuiMCP::Button("Remove selected types")) {
+                        if (selectedTypeSet.empty()) {
+                        } else {
+                            // remove children matching any selected type
+                            auto newEnd = std::remove_if(childrens.begin(), childrens.end(), [&](RE::TESObjectREFR* c) {
+                                if (!c) return false;
+                                if (auto childBase = c->GetBaseObject()) {
+                                    if (selectedTypeSet.contains(childBase->GetFormType())) {
+                                        if (c->Get3D()) {
+                                            c->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
+                                            c->Disable();
+                                            c->Enable(false);
+                                        }
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            });
+                            childrens.erase(newEnd, childrens.end());
+                        }
+                    }
+
+                    if (ImGuiMCP::Button("Highlight All")) {
+                        for (auto* child : childrens) {
+                            child->Get3D()->TintScenegraph(HighlightColor);
+                        }
+                    }
+                    ImGuiMCP::SameLine();
+                    if (ImGuiMCP::Button("UnHighlight All")) {
+                        for (auto* child : childrens) {
+                            child->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
+                        }
+                    }
+                    ImGuiMCP::SameLine();
+                    if (ImGuiMCP::Button("Remove All Childrens")) {
+                        drawBBox = false;
+                        for (auto* child : childrens) {
+                            if (child && child->Get3D()) {
+                                child->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
+                                child->Disable();
+                                child->Enable(false);
+                            }
+                        }
+                        childrens.clear();
+                    }
+
+                    static size_t filtered = 0;
+                    for (size_t i = 0; i < childrens.size(); ++i) {
+                        auto* child = childrens[i];
+                        if (!child) continue;
+                        if (child->IsDynamicForm()) continue;
+                        auto childFormID = child->GetFormID();
+                        std::string id = "Unknown";
+
+                        if (auto childBase = child->GetBaseObject()) {
+                            id = clib_util::editorID::get_editorID(child->GetBaseObject());
+                            std::string childFormIDStr = std::format("{:08X}", childFormID);
+                            if (Filter[0] && (id.find(Filter) == std::string::npos &&
+                                              childFormIDStr.find(Filter) == std::string::npos)) {
+                                filtered++;
+                                continue;
+                            }
+                            if (!selectedTypeSet.empty()) {
+                                if (!selectedTypeSet.contains(childBase->GetFormType())) {
+                                    filtered++;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    std::string label =
+                        std::format("Selected Ref Childrens: {}/{}###ChildList", childrens.size() - filtered, childrens.size());
+                    filtered = 0;
                     if (keepChildListOpen) {
                         ImGuiMCP::SetNextItemOpen(true, ImGuiMCP::ImGuiCond_Always);
                     }
@@ -526,46 +530,36 @@ namespace MCP {
                             return a->GetFormID() < b->GetFormID();
                         });
 
-                        ImGuiMCP::InputText("Add Child FormID (hex)", addChildFormID, 255);
-                        ImGuiMCP::SameLine();
-                        if (ImGuiMCP::Button("Add Child")) {
-                            // trim and optional 0x
-                            std::string s = addChildFormID;
-                            // remove spaces
-                            s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
-                            if (!s.empty()) {
-                                try {
-                                    if (s.rfind("0x", 0) == 0 || s.rfind("0X", 0) == 0) s = s.substr(2);
-                                    auto fid = static_cast<RE::FormID>(std::stoul(s, nullptr, 16));
-                                    if (auto form = RE::TESForm::LookupByID(fid)) {
-                                        if (auto childRef = form->As<RE::TESObjectREFR>()) {
-                                            bool exists = false;
-                                            for (auto* c : childrens) {
-                                                if (c->GetFormID() == childRef->GetFormID()) {
-                                                    exists = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (!exists) {
-                                                childrens.push_back(childRef);
-                                                keepChildListOpen = true;
-                                            }
-                                        }
-                                    }
-                                } catch (...) {
-                                    // ignore parse errors
-                                }
-                            }
-                        }
-
                         std::optional<size_t> toRemove;
                         for (size_t i = 0; i < childrens.size(); ++i) {
                             auto* child = childrens[i];
-                            ImGuiMCP::PushID(child->GetFormID());
-                            ImGuiMCP::Text("0x%08X", child->GetFormID());
+                            if (!child) continue;
+                            if (child->IsDynamicForm()) continue;
+                            auto childFormID = child->GetFormID();
+                            std::string id = "Unknown";
+                            std::string typeName = "Unknown";
+
+                            if (auto childBase = child->GetBaseObject()) {
+                                id = clib_util::editorID::get_editorID(child->GetBaseObject());
+                                std::string childFormIDStr = std::format("{:08X}", childFormID);
+                                if (Filter[0] && (id.find(Filter) == std::string::npos &&
+                                                  childFormIDStr.find(Filter) == std::string::npos)) {
+                                    continue;
+                                }
+                                
+                                if (!selectedTypeSet.empty()) {
+                                    if (!selectedTypeSet.contains(childBase->GetFormType())) {
+                                        continue;
+                                    }
+                                }
+                                typeName = FormTypeToString(childBase->GetFormType());
+                            }
+                            ImGuiMCP::PushID(childFormID);
+                            ImGuiMCP::Text("0x%08X", childFormID);
                             ImGuiMCP::SameLine();
-                            const auto id = clib_util::editorID::get_editorID(child->GetBaseObject());
                             ImGuiMCP::Text("%s", id.c_str());
+                            ImGuiMCP::SameLine();
+                            ImGuiMCP::Text("%s", typeName.c_str());
                             ImGuiMCP::SameLine();
 
                             if (ImGuiMCP::Button("Remove")) {
@@ -591,34 +585,7 @@ namespace MCP {
                             childrens.erase(childrens.begin() + toRemove.value());
                         }
                     } else {
-                        // header closed by user — reset keep flag
                         keepChildListOpen = false;
-                    }
-
-                    if (childrens.size() > 0) {
-                        if (ImGuiMCP::Button("Highlight All")) {
-                            for (auto* child : childrens) {
-                                child->Get3D()->TintScenegraph(HighlightColor);
-                            }
-                        }
-                        ImGuiMCP::SameLine();
-                        if (ImGuiMCP::Button("UnHighlight All")) {
-                            for (auto* child : childrens) {
-                                child->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
-                            }
-                        }
-                        ImGuiMCP::SameLine();
-                        if (ImGuiMCP::Button("Remove All Childrens")) {
-                            drawBBox = false;
-                            for (auto* child : childrens) {
-                                if (child && child->Get3D()) {
-                                    child->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
-                                    child->Disable();
-                                    child->Enable(false);
-                                }
-                            }
-                            childrens.clear();
-                        }
                     }
                 }
 
@@ -643,54 +610,64 @@ namespace MCP {
                                 }
                             }
                         }
-                        BobbingMgr->RemoveConfig(ref->GetFormID());
-                        std::set<RE::FormID> childrensFormIDs;
-                        for (auto* child : childrens) {
-                            childrensFormIDs.insert(child->GetFormID());
+
+                        // Build new BobbingConfig from UI
+                        BobbingConfig newCfg = configCreator;
+                        newCfg.formID = ref->GetFormID();
+                        newCfg.childrens.clear();
+                        for (auto* child : childrens) newCfg.childrens.insert(child->GetFormID());
+
+                        // If an existing config exists, remove it first to ensure clean save
+                        if (hasRefConfig) {
+                            BobbingMgr->RemoveConfig(ref->GetFormID());
                         }
-                        BobbingMgr->AddNewConfig(ref->GetFormID(), minMaxZ.x, minMaxZ.y, minRot, maxRot, speed,
-                                                 phaseOffset, actorInfluence, childrensFormIDs, filename);
+
+                        // Add and save
+                        BobbingMgr->AddNewConfig(newCfg, true);
 
                         for (auto* child : childrens) {
                             BobbingMgr->RefLoad(child);
                         }
                         BobbingMgr->RefLoad(ref);
                     }
-                }
-                if (hasRefConfig) {
-                    std::set<RE::FormID> childrensFormIDs;
-                    for (auto* child : childrens) {
-                        childrensFormIDs.insert(child->GetFormID());
-                    }
-                    // Update without saving
-                    BobbingMgr->AddNewConfig(ref->GetFormID(), minMaxZ.x, minMaxZ.y, minRot, maxRot, speed, phaseOffset,
-                                             actorInfluence, childrensFormIDs, filename, false);
-                    ImGuiMCP::SameLine();
-                    if (ImGuiMCP::Button("Remove Ref from Framework")) {
-                        drawBBox = false;
-                        for (auto* child : childrens) {
-                            child->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
-                        }
-                        ref->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
-                        ref->Disable();
-                        ref->Enable(false);
-                        auto cfg = BobbingMgr->GetConfig(ref->GetFormID());
-                        for (auto& childID : cfg.childrens) {
-                            auto form = RE::TESForm::LookupByID(childID);
-                            auto childRef = form ? form->As<RE::TESObjectREFR>() : nullptr;
-                            if (childRef && childRef->Get3D()) {
-                                childRef->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
-                                childRef->Disable();
-                                childRef->Enable(false);
+
+                    if (hasRefConfig) {
+                        BobbingConfig newCfg = configCreator;
+                        newCfg.formID = ref->GetFormID();
+                        newCfg.childrens.clear();
+                        for (auto* child : childrens) newCfg.childrens.insert(child->GetFormID());
+                        BobbingMgr->AddNewConfig(newCfg, false);
+
+                        ImGuiMCP::SameLine();
+                        if (ImGuiMCP::Button("Remove Ref from Framework")) {
+                            drawBBox = false;
+                            for (auto* child : childrens) {
+                                child->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
                             }
+                            ref->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
+                            ref->Disable();
+                            ref->Enable(false);
+                            auto cfg = BobbingMgr->GetConfig(ref->GetFormID());
+                            for (auto& childID : cfg.childrens) {
+                                auto form = RE::TESForm::LookupByID(childID);
+                                auto childRef = form ? form->As<RE::TESObjectREFR>() : nullptr;
+                                if (childRef && childRef->Get3D()) {
+                                    childRef->Get3D()->TintScenegraph(RE::NiColorA(0.0f, 0.0f, 0.0f, 0.0f));
+                                    childRef->Disable();
+                                    childRef->Enable(false);
+                                }
+                            }
+                            BobbingMgr->RemoveConfig(ref->GetFormID());
                         }
-                        BobbingMgr->RemoveConfig(ref->GetFormID());
                     }
                 }
                 if (ImGuiMCP::Button(baseLabel.c_str())) {
                     std::set<RE::FormID> childrensFormIDs;  // Always empty for Base
-                    BobbingMgr->AddNewConfig(ref->GetBaseObject()->GetFormID(), minMaxZ.x, minMaxZ.y, minRot, maxRot,
-                                             speed, phaseOffset, actorInfluence, childrensFormIDs, filename);
+
+                    // Build config for base
+                    BobbingConfig newCfg = configCreator;
+                    newCfg.formID = ref->GetBaseObject()->GetFormID();
+                    BobbingMgr->AddNewConfig(newCfg, true);
 
                     // Unoptimal? Yeah but only from MCP menu :*
                     RE::TES::GetSingleton()->ForEachReference([&](RE::TESObjectREFR* other_ref) {

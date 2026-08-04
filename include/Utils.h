@@ -10,6 +10,8 @@ namespace Utils {
 
     RE::NiPoint3 GetPosition(const RE::TESObjectREFR* obj);
     BoundaryBox GetBoundingBox(const RE::TESObjectREFR* a_obj);
+
+    float RandomFloat(float min, float max);
 }
 
 namespace Noise {
@@ -64,6 +66,7 @@ namespace Math {
 
         public:
             static RE::NiPoint3 Rotate(const RE::NiPoint3& A, const RE::NiPoint3& angles);
+            static RE::NiPoint3 Rotate(const RE::NiPoint3& A, const RE::NiMatrix3& angles);
 
             ~Geometry() = default;
             explicit Geometry(const RE::TESObjectREFR* obj);

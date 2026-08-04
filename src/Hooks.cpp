@@ -4,7 +4,6 @@
 
 namespace Hooks {
     void UpdateHook::Update(RE::Actor* a_this, float a_delta) {
-        Update_(a_this, a_delta);
         auto* conf = Config::GetSingleton();
         if (conf->ModActive) {
             auto start = std::chrono::high_resolution_clock::now();
@@ -15,23 +14,25 @@ namespace Hooks {
                 logger::info("BobbingFramework Update {}ms lastFrame: {}ms", elapsed.count(), a_delta * 1000);
             }
         }
+        Update_(a_this, a_delta);
     }
-
-    /*
-    void DrawHook::thunk(float a_timer) {
+    
+    void DrawHook::thunk(std::uint32_t a_timer) {
         func(a_timer);
         auto* conf = Config::GetSingleton();
         if (conf->ModActive) {
+            static auto lastFrameTime = std::chrono::high_resolution_clock::now();
             auto start = std::chrono::high_resolution_clock::now();
-            Bobbing::Manager::GetSingleton()->Update(a_timer);
+            std::chrono::duration<float, std::milli> deltaTime = start - lastFrameTime;
+            Bobbing::Manager::GetSingleton()->Update(deltaTime.count() / 1000.0f);
             if (conf->EnableTimeLogging) {
                 auto end = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> elapsed = end - start;
-                logger::info("BobbingFramework Update {}ms lastFrame: {}ms", elapsed.count(), a_timer * 1000);
+                logger::info("BobbingFramework Update {}ms lastFrame: {}ms", elapsed.count(), deltaTime.count());
             }
+            lastFrameTime = start;
         }
     }
-    */
 
     static void LoadQueue(RE::ObjectRefHandle refHandle) {
         clib_utilsQTR::Tasker::GetSingleton()->PushTask(
@@ -53,7 +54,7 @@ namespace Hooks {
                     }
                 });
             },
-            500);
+            1000);  // 1s delay to allow the ref to finish loading before attempting to load bobbing data
     }
 
     RE::NiAVObject* RefLoadHook::Load3D(RE::TESObjectREFR* a_this, bool a_backgroundLoading) {

@@ -18,7 +18,6 @@ struct ChildRef {
     RE::NiPoint3 OffsetPos;
     RE::NiMatrix3 OffsetRot;
     bool dynamic = false;
-    bool processed = false;
 };
 
 struct TrackedRef {
@@ -29,18 +28,25 @@ struct TrackedRef {
     std::unordered_map<RE::FormID, RE::ActorHandle> Actors;
 
     RE::NiPoint3 prevWave = {0, 0, 0};
+    RE::NiPoint3 prevRot = {0, 0, 0};
+    RE::NiPoint3 prevOffset = {0, 0, 0};
 };
 
 struct BobbingConfig {
     RE::FormID formID = 0;
 
-    float minZ = -5.0f;
-    float maxZ = 5.0f;
+    RE::NiPoint3 positionMin = {0.0f, 0.0f, -5.0f};
+    RE::NiPoint3 positionMax = {0.0f, 0.0f, 5.0f};
 
-    RE::NiPoint3 minRot{-0.01f, -0.01f, -0.01f};
-    RE::NiPoint3 maxRot{0.01f, 0.01f, 0.01f};
+    RE::NiPoint3 rotationMin{-0.01f, -0.01f, -0.01f};
+    RE::NiPoint3 rotationMax{0.01f, 0.01f, 0.01f};
 
-    float speed = 1.0f;
+    RE::NiPoint3 speedPos = {1.0f, 1.0f, 1.0f};
+    RE::NiPoint3 speedRot = {1.0f, 1.0f, 1.0f};
+
+    RE::NiPoint3 BBoxMinOffset{0.0f, 0.0f, 0.0f};
+    RE::NiPoint3 BBoxMaxOffset{0.0f, 0.0f, 0.0f};
+
     float phaseOffset = 0.0f;
     float actorInfluence = 0.0f;
 
@@ -51,14 +57,15 @@ struct BobbingConfig {
 namespace Bobbing {
     class Manager : public REX::Singleton<Manager> {
     public:
-        Manager() {
+        void Init() {
             LoadAllConfigs("Data\\SKSE\\Plugins\\BobbingFramework");
             logger::info("Loaded {} Bobbing Configs", configs.size());
         }
 
-        bool HasConfig(RE::FormID formID) { 
+        bool HasConfig(RE::FormID formID) {
             std::shared_lock lock(configsMutex);
-            return configs.contains(formID); }
+            return configs.contains(formID);
+        }
 
         bool IsPending(RE::FormID formID) {
             std::shared_lock lock(pendingChildrenMutex);
@@ -74,16 +81,13 @@ namespace Bobbing {
             return {};
         }
 
-        void AddNewConfig(RE::FormID formID, float minZ, float maxZ, RE::NiPoint3 minRot, RE::NiPoint3 maxRot,
-                          float speed, float phaseOffset, float actorInfluence, std::set<RE::FormID> childrens, std::string filename,
-                          bool save = true) {
-            BobbingConfig cfg = {formID, minZ, maxZ, minRot, maxRot, speed, phaseOffset, actorInfluence, childrens};
+        void AddNewConfig(BobbingConfig newConfig, bool save = true) {
             {
                 std::unique_lock lock(configsMutex);
-                configs[cfg.formID] = cfg;
+                configs[newConfig.formID] = newConfig;
             }
             if (save) {
-                SaveConfigToFile(cfg.formID, cfg, filename);
+                SaveConfigToFile(newConfig.formID, newConfig, newConfig.filePath);
             }
         }
 
@@ -101,7 +105,7 @@ namespace Bobbing {
         }
 
         TrackedRef* GetTrackedRef(RE::FormID formID) {
-            //std::shared_lock lock(trackedRefsMutex);
+            // std::shared_lock lock(trackedRefsMutex);
             auto it = trackedRefs.find(formID);
             if (it != trackedRefs.end()) {
                 return &it->second;
@@ -109,32 +113,33 @@ namespace Bobbing {
             return nullptr;
         }
 
-        void AddDynamicFurniture(RE::TESObjectREFR* parentRef, RE::ObjectRefHandle furnitureRefHandle) {
+        void AddDynamicChild(RE::TESObjectREFR* parentRef, RE::TESObjectREFR* childRef) {
             if (!parentRef) return;
 
             auto TrackedRef = GetTrackedRef(parentRef->GetFormID());
             if (!TrackedRef) return;
 
-            auto furnitureRef = furnitureRefHandle.get().get();
-            if (!furnitureRef) return;
+            if (!childRef) return;
 
-            auto furnitureFormID = furnitureRef->GetFormID();
+            auto childRefHandle = childRef->GetHandle();
 
-            if (TrackedRef->childrens.contains(furnitureFormID)) {
+            auto childFormID = childRef->GetFormID();
+
+            if (TrackedRef->childrens.contains(childFormID)) {
                 return;  // already tracked
             } else {
-                if (auto furn3D = furnitureRef->Get3D()) {
-                    ChildRef DynamicFurniture;
-                    DynamicFurniture.dynamic = true;
-                    DynamicFurniture.refHandle = furnitureRefHandle;
+                if (auto child3D = childRef->Get3D()) {
+                    ChildRef DynamicChild;
+                    DynamicChild.dynamic = true;
+                    DynamicChild.refHandle = childRefHandle;
 
-                    DynamicFurniture.OffsetPos =
-                        TrackedRef->baseRot.Transpose() * (furn3D->world.translate - TrackedRef->basePos);
+                    DynamicChild.OffsetPos =
+                        TrackedRef->baseRot.Transpose() * (child3D->local.translate - TrackedRef->basePos);
 
-                    RE::NiMatrix3 childRot = furn3D->world.rotate;
-                    DynamicFurniture.OffsetRot = TrackedRef->baseRot.Transpose() * childRot;
+                    RE::NiMatrix3 childRot = child3D->local.rotate;
+                    DynamicChild.OffsetRot = TrackedRef->baseRot.Transpose() * childRot;
 
-                    TrackedRef->childrens[furnitureFormID] = DynamicFurniture;
+                    TrackedRef->childrens[childFormID] = DynamicChild;
                 }
             }
         }
@@ -148,7 +153,7 @@ namespace Bobbing {
             auto actorFormID = actor->GetFormID();
 
             if (TrackedRef->Actors.contains(actorFormID)) {
-                return; // Actor already tracked
+                return;  // Actor already tracked
             } else {
                 RE::ActorHandle actorHandle = actor->GetHandle();
                 TrackedRef->Actors[actorFormID] = actorHandle;
@@ -171,8 +176,7 @@ namespace Bobbing {
             }
         }
 
-        static RE::NiPoint3 UpdateOccupantsAndGetCenter(RE::TESObjectREFR* ref) {
-
+        static RE::NiPoint3 UpdateOccupantsAndGetCenter(RE::TESObjectREFR* ref, RE::NiPoint3 minOffset, RE::NiPoint3 maxOffset) {
             auto c = Utils::GetBoundingBox(ref);
 
             // --- Compute center (OBB) ---
@@ -202,16 +206,16 @@ namespace Bobbing {
                 RE::NiPoint3 d = point - center;
 
                 float dx = d.Dot(axisX);
-                if (dx > (extentX)) return false;
-                if (dx < -(extentX)) return false;
+                if (dx > (extentX + maxOffset.x)) return false;
+                if (dx < -(extentX + minOffset.x)) return false;
 
                 float dy = d.Dot(axisY);
-                if (dy > (extentY)) return false;
-                if (dy < -(extentY)) return false;
+                if (dy > (extentY + maxOffset.y)) return false;
+                if (dy < -(extentY + minOffset.y)) return false;
 
                 float dz = d.Dot(axisZ);
-                if (dz > (extentZ)) return false;
-                if (dz < -(extentZ)) return false;
+                if (dz > (extentZ + maxOffset.z)) return false;
+                if (dz < -(extentZ + minOffset.z)) return false;
 
                 return true;
             };
@@ -235,47 +239,18 @@ namespace Bobbing {
                 }
 
                 if (auto otherActor = other->As<RE::Actor>()) {
-                    if (!otherActor->IsInJumpState() || !otherActor->IsGhost() || !otherActor->IsFlying() ||
-                        !otherActor->IsInMidair() || !otherActor->IsSwimming()) {
-                        actorPositions.push_back(pos);
-                    }
-
                     Manager::GetSingleton()->AddActor(ref, otherActor);
 
-                    /*
-                    auto occupiedFurnitureHandle = otherActor->GetOccupiedFurniture();
-                    if (auto occupiedFurniture = occupiedFurnitureHandle.get().get()) {
-
-                        // Is this even working?!
-                        //auto SitSleepState = otherActor->GetSitSleepState();
-                        //logger::info("Actor {} SitState = {}", otherActor->GetName(), static_cast<int>(SitSleepState));
-                        //if (SitSleepState == RE::SIT_SLEEP_STATE::kIsSitting ||
-                        //    SitSleepState == RE::SIT_SLEEP_STATE::kIsSleeping) {
-
-                            if (auto childNode = occupiedFurniture->Get3D()) {
-                                DebugAPI_IMPL::DebugAPI::GetSingleton()->DrawLineForMS(childNode->world.translate,
-                                                                                       otherActor->GetPosition());
-                                DebugAPI_IMPL::DebugAPI::GetSingleton()->Update();
-                                auto distance = childNode->world.translate.GetDistance(otherActor->GetPosition());
-                                auto sizes = occupiedFurniture->GetBoundMax() - occupiedFurniture->GetBoundMin();
-                                float treshold = std::max(sizes.x, sizes.y) / 2;
-                                logger::debug("Actor {} distance to furniture {} treshold {}", otherActor->GetName(),
-                                              distance, treshold);
-                                if (distance < treshold) {
-                                    otherActor->SetPosition(childNode->world.translate, true);
-                                }
-                            }
-                        //}
-                        if (occupiedFurniture->IsDynamicForm()) {
-                            Manager::GetSingleton()->AddDynamicFurniture(ref, occupiedFurnitureHandle);
-                        }
+                    if (!otherActor->IsGhost()) {
+                        actorPositions.push_back(pos);
                     }
-                    */
-                    return RE::BSContainer::ForEachResult::kContinue;
+                } else { // Not an actor
+                    if (other->IsDynamicForm() && !other->IsWater()) {
+                        Manager::GetSingleton()->AddDynamicChild(ref, other);
+                    }
                 }
 
                 if (auto other3D = other->Get3D()) {
-                    // other->AddChange(RE::TESObjectREFR::ChangeFlags::kHavokMoved);
                     ApplyImpulseToNode(other3D, {0, 0, 0, 0});
                 }
 
@@ -292,8 +267,98 @@ namespace Bobbing {
             return returnedCenter;
         }
 
+        void ResetBobbing() {
+            for (auto it = trackedRefs.begin(); it != trackedRefs.end();) {
+                auto& parent = it->second;
+
+                auto parentRef = parent.refHandle.get().get();
+                if (!parentRef) {
+                    it = trackedRefs.erase(it);
+                    continue;
+                }
+
+                auto parentRefFormID = parentRef->GetFormID();
+
+                auto parentNode = parentRef->Get3D();
+                if (!parentNode) {
+                    ++it;
+                    continue;
+                }
+
+                auto cfg = GetConfig(parentRefFormID);
+                if (cfg.formID == 0) {  // if no ref config, than base config
+                    auto parentBase = parentRef->GetBaseObject();
+                    if (parentBase) cfg = GetConfig(parentBase->GetFormID());
+                }
+
+                if (cfg.formID == 0) {
+                    it = trackedRefs.erase(it);
+                    continue;
+                }
+
+                // Cache for next frame
+                parent.prevWave = {0, 0, 0};
+
+                parentNode->local.translate = parent.basePos;
+                parentNode->local.rotate = parent.baseRot;
+
+                RE::NiUpdateData updData;
+                updData.flags = RE::NiUpdateData::Flag::kNone;
+                updData.time = 0.0f;
+
+                parentNode->UpdateTransformAndBounds(updData);
+
+                parent.prevOffset = {0, 0, 0};
+                parent.prevRot = {0, 0, 0};
+
+                // APPLY TO CHILDREN
+                for (auto childIt = parent.childrens.begin(); childIt != parent.childrens.end();) {
+                    auto& child = childIt->second;
+                    auto childRef = child.refHandle.get().get();
+
+                    if (!childRef) {
+                        childIt = parent.childrens.erase(childIt);
+                        continue;
+                    }
+
+                    if (auto childNode = childRef->Get3D()) {
+                        RE::NiPoint3 rotatedOffset = parent.baseRot * child.OffsetPos;
+                        RE::NiPoint3 childFinalPos = parent.basePos + rotatedOffset;
+                        RE::NiMatrix3 childFinalRot = parent.baseRot * child.OffsetRot;
+
+                        childNode->local.translate = childFinalPos;
+                        childNode->local.rotate = childFinalRot;
+                        childNode->UpdateTransformAndBounds(updData);
+                    }
+                    ++childIt;
+                }
+                ++it;
+            }
+        }
+
+        void OnLoadGame() { time = 0.0f; }
+
+        void OnSaveGame() {
+            ResetBobbing();
+        }
+
+        void FixInAir(RE::ActorHandle actorHandle) {
+            clib_utilsQTR::Tasker::GetSingleton()->PushTask(
+                [actorHandle]() {
+                    SKSE::GetTaskInterface()->AddTask([actorHandle]() {
+                        if (auto Actor = actorHandle.get().get()) {
+                            if (RE::bhkCharacterController* controller = Actor->GetCharController()) {
+                                if (controller->context.currentState == RE::hkpCharacterStateType::kInAir) {
+                                    controller->context.currentState = RE::hkpCharacterStateType::kOnGround;
+                                }
+                            }
+                        }
+                    });
+                },
+                1000);
+        }
+
         void Update(float deltaTime) {
-            static float time = 0.0f;
             time += deltaTime;
 
             std::unique_lock trackedRefsLock(trackedRefsMutex);
@@ -326,34 +391,45 @@ namespace Bobbing {
                     continue;
                 }
 
-                // if speed is 0 or all min max params are 0 skip.
-                if (cfg.speed == 0.0f ||
-                    (cfg.minZ == 0.0f && cfg.maxZ == 0.0f && cfg.minRot.x == 0.0f && cfg.minRot.y == 0.0f &&
-                     cfg.minRot.z == 0.0f && cfg.maxRot.x == 0.0f && cfg.maxRot.y == 0.0f && cfg.maxRot.z == 0.0f)) {
+                RE::NiPoint3 zeroPoint3{0.0f, 0.0f, 0.0f};
+                // if all speed is 0 or all min max params are 0 skip.
+                if ((cfg.speedPos == zeroPoint3 && cfg.speedRot == zeroPoint3) ||
+                    (cfg.positionMax == zeroPoint3 && cfg.positionMin == zeroPoint3 && cfg.rotationMax == zeroPoint3 &&
+                     cfg.rotationMin == zeroPoint3)) {
                     ++it;
                     continue;
                 }
 
-                float refTime = time * cfg.speed;
-
                 // WAVE
                 float phase = ((parentRefFormID % 10) / 10.0f) + cfg.phaseOffset;
-                float zOffsetWave = (std::sin(refTime + phase * (2.0f * M_PI)) * 0.5f) + 0.5f;
 
-                // Z movement
-                float zOffset = std::lerp(cfg.minZ, cfg.maxZ, zOffsetWave);
+                RE::NiPoint3 posTimes = cfg.speedPos * time;
+                RE::NiPoint3 rotTimes = cfg.speedRot * time;
+
+                // movement
+                float xOffsetWave = (std::sin(posTimes.x + phase * (2.0f * M_PI)) * 0.5f) + 0.5f;
+                float yOffsetWave = (std::sin(posTimes.y + phase * (2.0f * M_PI)) * 0.5f) + 0.5f;
+                float zOffsetWave = (std::sin(posTimes.z + phase * (2.0f * M_PI)) * 0.5f) + 0.5f;
+
+                float xOffset = std::lerp(cfg.positionMin.x, cfg.positionMax.x, xOffsetWave);
+                float yOffset = std::lerp(cfg.positionMin.y, cfg.positionMax.y, yOffsetWave);
+                float zOffset = std::lerp(cfg.positionMin.z, cfg.positionMax.z, zOffsetWave);
+
                 RE::NiPoint3 newParentPos = parent.basePos;
+                newParentPos.x += xOffset;
+                newParentPos.y += yOffset;
                 newParentPos.z += zOffset;
 
-                float xRotWave = (std::cos(refTime + phase * (2.0f * M_PI)) * 0.3f) + 0.5f;
-                float yRotWave = (std::cos(refTime + phase * (2.0f * M_PI)) * 0.3f) + 0.5f;
 
-                float zRotWave = (std::sin(refTime + phase * (2.0f * M_PI)) * 0.5f) + 0.5f;
+                // rotation
+                float xRotWave = (std::sin(rotTimes.x + phase * (2.0f * M_PI)) * 0.3f) + 0.5f;
+                float yRotWave = (std::sin(rotTimes.y + phase * (2.0f * M_PI)) * 0.3f) + 0.5f;
+                float zRotWave = (std::sin(rotTimes.z + phase * (2.0f * M_PI)) * 0.5f) + 0.5f;
 
-                RE::NiPoint3 centerOfMass = UpdateOccupantsAndGetCenter(parentRef);
+                RE::NiPoint3 centerOfMass = UpdateOccupantsAndGetCenter(parentRef, cfg.BBoxMinOffset, cfg.BBoxMaxOffset);
 
-                auto minAngles = cfg.minRot;
-                auto maxAngles = cfg.maxRot;
+                auto minAngles = cfg.rotationMin;
+                auto maxAngles = cfg.rotationMax;
 
                 if (cfg.actorInfluence > 0.0f) {
                     RE::NiPoint3 parentRefPos = parentRef->GetPosition();
@@ -380,22 +456,23 @@ namespace Bobbing {
                         xRotWave = std::clamp(xRotWave + rollBias, 0.0f, 1.0f);
                         yRotWave = std::clamp(yRotWave + pitchBias, 0.0f, 1.0f);
 
-                        minAngles *= 2;
-                        maxAngles *= 2;
+                        minAngles.x *= 2;
+                        maxAngles.x *= 2;
+                        minAngles.y *= 2;
+                        maxAngles.y *= 2;
                     }
                 }
 
                 auto previousWave = parent.prevWave;
 
-                auto SmoothWave = [&](float current, float previous) {
-                    if (std::abs(previous - current) < 0.001f) return current;
-                    float alpha = 1.0f - std::exp(-5.0f * deltaTime * cfg.speed);
+                auto SmoothWave = [&](float current, float previous, float speed) {
+                    float alpha = 1.0f - std::exp(-2.0f * deltaTime * speed);
                     return std::lerp(previous, current, alpha);
                 };
 
-                xRotWave = SmoothWave(xRotWave, previousWave.x);
-                yRotWave = SmoothWave(yRotWave, previousWave.y);
-                zRotWave = SmoothWave(zRotWave, previousWave.z);
+                xRotWave = SmoothWave(xRotWave, previousWave.x, cfg.speedRot.x);
+                yRotWave = SmoothWave(yRotWave, previousWave.y, cfg.speedRot.y);
+                zRotWave = SmoothWave(zRotWave, previousWave.z, cfg.speedRot.z);
 
                 // Cache for next frame
                 parent.prevWave = {xRotWave, yRotWave, zRotWave};
@@ -410,123 +487,79 @@ namespace Bobbing {
                 RotMatrix.EulerAnglesToAxesZXY(rot);
                 RE::NiMatrix3 newParentRot = parent.baseRot * RotMatrix;
 
-                // Option 1: Works but collision isnt updated
-                // changing ref position is not good because it can change ref's cell and cause all sorts of issues
-                // plus its serialized
-                // parentRef->SetPosition(newParentPos);
-                // parentRef->SetAngle(newParentRot);
-
-                // Option 2: Object is invisable and random CTD, probably to spaming the MoveTo_Impl
-                // auto handle = parentRef->GetHandle();
-                // parentRef->MoveTo_Impl(handle, ref->GetParentCell(), ref->GetWorldspace(), newParentPos,
-                // newParentRot); if (auto refptr = handle.get()) {
-                //    if (auto ref = refptr.get()) {
-                //        if (auto a3d = ref->Load3D(false)) {
-                //            if (auto fade = a3d->AsFadeNode()) {
-                //                fade->GetRuntimeData().currentFade = 1.f;
-                //            }
-                //        }
-                //    }
-                //}
-
-                // Option 3: Works but collision isn't updated
-                // better than Option 1 because we don't move ref, just it's model
                 parentNode->local.translate = newParentPos;
                 parentNode->local.rotate = newParentRot;
 
-                // Option 4: Not working at all probably it's calculated from ref position plus loacl?
-                // parentNode->world.translate = tracked.basePos;
-                // parentNode->world.translate.z += zOffset;
-
-                // Collision update atempts
-                // parentNode->SetCollisionLayer(RE::COL_LAYER::kAnimStatic); // No
-                // parentRef->MoveHavok(true); // No
-                // parentNode->UpdateCollisionObject(true);  // No - why?
-
-                //
-                // if (auto colObj = parentNode->GetCollisionObject()) {
-                //    colObj->flags.set(RE::bhkNiCollisionObject::Flag::kSyncOnUpdate);  // No - WHY?
-                //}
-                // if (auto parrntColObj = parentNode->GetCollisionObject()) {
-                //    parrntColObj->flags.set(RE::bhkNiCollisionObject::Flag::kReset);  // No - WHY?
-                //}
-                // if (auto parrntColObj = parentNode->GetCollisionObject()) {
-                //    parrntColObj->flags.set(RE::bhkNiCollisionObject::Flag::kDebugDisplay);  // No
-                //}
-                // if (auto parrntColObj = parentNode->GetCollisionObject()) {
-                //    parrntColObj->flags.set(RE::bhkNiCollisionObject::Flag::kNotify);  // No
-                //}
-
-                // What to update?
                 RE::NiUpdateData updData;
                 updData.flags = RE::NiUpdateData::Flag::kNone;
                 updData.time = 0.0f;
 
-                // parentNode->UpdateWorldData(&updData);          // no - local   // no - world
-                parentNode->UpdateTransformAndBounds(updData);  // yes - local  // no - world // no collision update
-                // parentNode->Update(updData);                    // yes - local  // no - world // no collision update
-                // parentNode->UpdateWorldBound();                 // no - local   // no - world
-                // parentRef->Update3DPosition(true);           // yes - Option 1
-                // parentRef->SetAltered(true); // no collision update
-                // parentRef->SetCollision(true);
-                // parentRef->UpdateAnimation(0.0f);
-
-                // Turns out to be not needed
-                // parentRef->InitItem();
-                // parentRef->InitHavok();
-                // parentRef->MoveHavok(true);
-                // MakeRefColisionDynamic(parentRef);
-
+                parentNode->UpdateTransformAndBounds(updData);
+               
                 // APPLY TO ACTORS
+                RE::NiPoint3 parentRefPos = parentRef->GetPosition();
+                RE::NiPoint3 parentRefAngles = parentRef->GetAngle();
+
+                RE::NiPoint3 oldRefPos =
+                    parentRefPos + RE::NiPoint3(parent.prevOffset.x, parent.prevOffset.y, parent.prevOffset.z);
+                RE::NiPoint3 oldRefAngles = parentRefAngles + parent.prevRot;
+
+                RE::NiMatrix3 oldRefRot;
+                oldRefRot.EulerAnglesToAxesZXY(oldRefAngles);
+
+                RE::NiPoint3 newRefPos = parentRefPos + RE::NiPoint3(xOffset, yOffset, zOffset);
+                RE::NiPoint3 newRefAngles = parentRefAngles + rot;
+
+                RE::NiMatrix3 newRefRot;
+                newRefRot.EulerAnglesToAxesZXY(newRefAngles);
+
                 for (auto ActorIt = parent.Actors.begin(); ActorIt != parent.Actors.end();) {
                     auto& actorHandle = ActorIt->second;
                     RE::Actor* Actor = actorHandle.get().get();
 
                     if (!Actor) {
-                        // invalid
-                        ActorIt = parent.Actors.erase(ActorIt);
+                        ++ActorIt;
+                        continue;
+                    }
+                    if (Actor->IsInJumpState()) {
+                        ++ActorIt;
                         continue;
                     }
 
-                    if (auto occupiedFurnitureHandle = Actor->GetOccupiedFurniture()) {
-                        if (auto occupiedFurniture = occupiedFurnitureHandle.get().get()) {
-                            auto FurnitureAsChild = parent.childrens.find(occupiedFurniture->GetFormID());
+                    RE::NiPoint3 actorWorldPos = Actor->GetPosition();
+                    RE::NiPoint3 localOffset = oldRefRot.Transpose() * (actorWorldPos - oldRefPos);
+                    RE::NiPoint3 newActorPos = newRefPos + (newRefRot * localOffset);
 
-                            if (FurnitureAsChild != parent.childrens.end()) {
-                                if (auto childNode = occupiedFurniture->Get3D()) {
-                                    auto currActorPos = Actor->GetPosition();
-                                    auto distance = childNode->world.translate.GetDistance(currActorPos);
-                                    auto sizes = occupiedFurniture->GetBoundMax() - occupiedFurniture->GetBoundMin();
-                                    float treshold = std::max(sizes.x, sizes.y) / 2;
+                    // Actors should never be rotated in X and Y, only Z (yaw) is allowed
+                    RE::NiPoint3 newActorRot = Actor->GetAngle();
+                    float deltaYaw = rot.z - parent.prevRot.z;
+                    newActorRot.z += deltaYaw;
 
-                                    if (distance < treshold) {
+                    if (RE::bhkCharacterController* controller = Actor->GetCharController()) {
+                        RE::hkVector4 LinearVelocity;
+                        controller->GetLinearVelocityImpl(LinearVelocity);
+                        auto currentState = controller->context.currentState;
+                        Actor->SetPosition(newActorPos, true);
+                        Actor->SetAngle(newActorRot);
 
-                                        RE::NiPoint3 rotatedOffset = newParentRot * FurnitureAsChild->second.OffsetPos;
-                                        RE::NiPoint3 childFinalPos = newParentPos + rotatedOffset;
-                                        RE::NiMatrix3 childFinalRot = newParentRot * FurnitureAsChild->second.OffsetRot;
+                        // Forward the volicity, so actor keeps moving in the same direction
+                        controller->SetLinearVelocityImpl(LinearVelocity);
+                        // Forward the sate
+                        // SetPosition(newActorPos, true), is setting the state to kOnAir
+                        controller->context.currentState = currentState;
 
-                                        RE::NiPoint3 offsetDiff = childFinalPos - childNode->local.translate;
-
-                                        // APPLY
-                                        childNode->local.translate = childFinalPos;
-                                        childNode->local.rotate = childFinalRot;
-                                        childNode->UpdateTransformAndBounds(updData);
-
-                                        Actor->SetPosition(currActorPos + offsetDiff, true);
-
-                                        FurnitureAsChild->second.processed = true;
-                                        //logger::debug("occupiedFurniture {:08X}, processing with actor {}",
-                                        //              occupiedFurniture->GetFormID(), Actor->GetName());
-                                    }
-                                }
-                            }
-                            if (occupiedFurniture->IsDynamicForm()) {
-                                Manager::GetSingleton()->AddDynamicFurniture(parentRef, occupiedFurnitureHandle);
-                            }
+                        if (currentState == RE::hkpCharacterStateType::kInAir) {
+                            FixInAir(Actor->GetHandle());
                         }
                     }
+
                     ++ActorIt;
                 }
+
+                parent.prevOffset = {xOffset, yOffset, zOffset};
+                parent.prevRot = rot;
+                parent.Actors.clear();
+
                 // APPLY TO CHILDREN
                 for (auto childIt = parent.childrens.begin(); childIt != parent.childrens.end();) {
                     auto& child = childIt->second;
@@ -541,59 +574,23 @@ namespace Bobbing {
                         continue;
                     }
 
-                    if (!child.processed) {
-                        if (auto childNode = childRef->Get3D()) {
-                            RE::NiPoint3 rotatedOffset = newParentRot * child.OffsetPos;
-                            RE::NiPoint3 childFinalPos = newParentPos + rotatedOffset;
-                            RE::NiMatrix3 childFinalRot = newParentRot * child.OffsetRot;
+                    if (auto childNode = childRef->Get3D()) {
+                        RE::NiPoint3 rotatedOffset = newParentRot * child.OffsetPos;
+                        RE::NiPoint3 childFinalPos = newParentPos + rotatedOffset;
+                        RE::NiMatrix3 childFinalRot = newParentRot * child.OffsetRot;
 
-                            // APPLY
-                            childNode->local.translate = childFinalPos;
-                            childNode->local.rotate = childFinalRot;
-                            childNode->UpdateTransformAndBounds(updData);
-                        }
-                    } else {
-                        child.processed = false;
-                        //logger::debug("child {:08X}, was processed before", childRef->GetFormID());
+                        // APPLY
+                        childNode->local.translate = childFinalPos;
+                        childNode->local.rotate = childFinalRot;
+                        childNode->UpdateTransformAndBounds(updData);
                     }
                     ++childIt;
                 }
-                parent.Actors.clear();
                 ++it;
             }
         }
 
         static void MakeRefColisionDynamic(RE::TESObjectREFR* a_ref) {
-            /*
-            * All this and much more
-            * And all i needed was: a_ref->SetMotionType(RE::hkpMotion::MotionType::kKeyframed, true);
-            * 
-            * 
-            if (const auto root = a_ref->Get3D(); root) {
-                const auto cell = a_ref->GetParentCell();
-
-                root->SetCollisionLayer(RE::COL_LAYER::kAnimStatic);
-                root->SetMotionType(RE::hkpMotion::MotionType::kBoxInertia);
-
-                if (auto colObj = root->GetCollisionObject()) {
-                    colObj->flags.set(RE::bhkNiCollisionObject::Flag::kActive);
-                    colObj->flags.set(RE::bhkNiCollisionObject::Flag::kSetLocal);
-                    colObj->flags.set(RE::bhkNiCollisionObject::Flag::kSyncOnUpdate);
-                    if (auto colBody = colObj->body.get()) {
-                        //logger::info("RTTI: {}", typeid(*colBody).name());
-                        if (auto rigidBody = colBody->AsBhkRigidBody()) {
-                            //logger::info("RTTI: {}", typeid(*rigidBody).name());
-                            if (auto rigidBodyT = skyrim_cast<RE::bhkRigidBodyT*>(rigidBody) ) {
-                                //logger::info("RTTI: {}", typeid(*rigidBodyT).name());
-                            } else {
-                                //logger::warn("Collision body is not bhkRigidBodyT");
-                            }
-                        }
-                    }
-                }
-            }
-            */
-            // Truman THANK YOU <3
             a_ref->SetMotionType(RE::hkpMotion::MotionType::kKeyframed, true);
         }
 
@@ -630,16 +627,13 @@ namespace Bobbing {
 
                     auto parentIt = trackedRefs.find(parentID);
                     if (parentIt != trackedRefs.end()) {
-
                         ChildRef childRefData;
                         childRefData.refHandle = ref->GetHandle();
-
                         // Pending
-                        childRefData.OffsetPos = parentIt->second.baseRot.Transpose() * (ref3D->world.translate - parentIt->second.basePos);
-
-                        RE::NiMatrix3 childRot = ref3D->world.rotate;
+                        childRefData.OffsetPos =
+                            parentIt->second.baseRot.Transpose() * (ref3D->local.translate - parentIt->second.basePos);
+                        RE::NiMatrix3 childRot = ref3D->local.rotate;
                         childRefData.OffsetRot = parentIt->second.baseRot.Transpose() * childRot;
-
                         parentIt->second.childrens[formID] = childRefData;
 
                         MakeRefColisionDynamic(ref);
@@ -656,10 +650,8 @@ namespace Bobbing {
                 if (hasBaseConfig || hasRefConfig) {
                     TrackedRef refData;
                     refData.refHandle = ref->GetHandle();
-
-                    refData.basePos = ref3D->world.translate;
-
-                    refData.baseRot = ref3D->world.rotate;
+                    refData.basePos = ref3D->local.translate;
+                    refData.baseRot = ref3D->local.rotate;
 
                     MakeRefColisionDynamic(ref);
 
@@ -675,15 +667,19 @@ namespace Bobbing {
                             if (childRef) {
                                 auto child3D = childRef->Get3D();
                                 if (!child3D) {
+                                    pendingChildrenLock.lock();
+                                    pendingChildren[childID] = formID;
+                                    pendingChildrenLock.unlock();
+                                    logger::debug("Child {:08X} of parent {:08X} is not loaded yet, added to pending",
+                                                  childID, formID);
                                     continue;
                                 }
                                 ChildRef childRefData;
                                 childRefData.refHandle = childRef->GetHandle();
 
                                 childRefData.OffsetPos =
-                                    refData.baseRot.Transpose() * (child3D->world.translate - refData.basePos);
-
-                                RE::NiMatrix3 childRot = child3D->world.rotate;
+                                    refData.baseRot.Transpose() * (child3D->local.translate - refData.basePos);
+                                RE::NiMatrix3 childRot = child3D->local.rotate;
                                 childRefData.OffsetRot = refData.baseRot.Transpose() * childRot;
                                 refData.childrens[childRef->GetFormID()] = childRefData;
 
@@ -743,42 +739,99 @@ namespace Bobbing {
                 cfg.filePath = entry.path().string();
 
                 // presence flags - used for merge logic
-                bool containsMinZ = false;
-                bool containsMaxZ = false;
+                bool containsMinPos = false;
+                bool containsMaxPos = false;
                 bool containsMinRot = false;
                 bool containsMaxRot = false;
                 bool containsSpeed = false;
                 bool containsPhaseOffset = false;
                 bool containsActorInfluence = false;
+                bool containsBoundingBox = false;
 
+                // Backward Compatibility for old config files
                 // --- Z movement ---
                 if (j.contains("minZ")) {
-                    containsMinZ = true;
-                    cfg.minZ = j["minZ"].get<float>();
+                    containsMinPos = true;
+                    cfg.positionMin.z = j["minZ"].get<float>();
                 }
                 if (j.contains("maxZ")) {
-                    containsMaxZ = true;
-                    cfg.maxZ = j["maxZ"].get<float>();
+                    containsMaxPos = true;
+                    cfg.positionMax.z = j["maxZ"].get<float>();
                 }
-
                 // --- Rotation ---
                 if (j.contains("minRot") && j["minRot"].is_array() && j["minRot"].size() == 3) {
                     containsMinRot = true;
-                    cfg.minRot.x = j["minRot"][0].get<float>();
-                    cfg.minRot.y = j["minRot"][1].get<float>();
-                    cfg.minRot.z = j["minRot"][2].get<float>();
+                    cfg.rotationMin.x = j["minRot"][0].get<float>();
+                    cfg.rotationMin.y = j["minRot"][1].get<float>();
+                    cfg.rotationMin.z = j["minRot"][2].get<float>();
                 }
-
                 if (j.contains("maxRot") && j["maxRot"].is_array() && j["maxRot"].size() == 3) {
                     containsMaxRot = true;
-                    cfg.maxRot.x = j["maxRot"][0].get<float>();
-                    cfg.maxRot.y = j["maxRot"][1].get<float>();
-                    cfg.maxRot.z = j["maxRot"][2].get<float>();
+                    cfg.rotationMax.x = j["maxRot"][0].get<float>();
+                    cfg.rotationMax.y = j["maxRot"][1].get<float>();
+                    cfg.rotationMax.z = j["maxRot"][2].get<float>();
                 }
-
                 if (j.contains("speed")) {
                     containsSpeed = true;
-                    cfg.speed = j["speed"].get<float>();
+                    float speed = j["speed"].get<float>();
+                    cfg.speedPos.x = speed;
+                    cfg.speedPos.y = speed;
+                    cfg.speedPos.z = speed;
+                    cfg.speedRot.x = speed;
+                    cfg.speedRot.y = speed;
+                    cfg.speedRot.z = speed;
+                }
+
+                // New config files
+                if (j.contains("positionMin")) {
+                    containsMinPos = true;
+                    cfg.positionMin.x = j["positionMin"][0].get<float>();
+                    cfg.positionMin.y = j["positionMin"][1].get<float>();
+                    cfg.positionMin.z = j["positionMin"][2].get<float>();
+                }
+                if (j.contains("positionMax")) {
+                    containsMaxPos = true;
+                    cfg.positionMax.x = j["positionMax"][0].get<float>();
+                    cfg.positionMax.y = j["positionMax"][1].get<float>();
+                    cfg.positionMax.z = j["positionMax"][2].get<float>();
+                }
+                if (j.contains("rotationMin")) {
+                    containsMinRot = true;
+                    cfg.rotationMin.x = j["rotationMin"][0].get<float>();
+                    cfg.rotationMin.y = j["rotationMin"][1].get<float>();
+                    cfg.rotationMin.z = j["rotationMin"][2].get<float>();
+                }
+                if (j.contains("rotationMax")) {
+                    containsMaxRot = true;
+                    cfg.rotationMax.x = j["rotationMax"][0].get<float>();
+                    cfg.rotationMax.y = j["rotationMax"][1].get<float>();
+                    cfg.rotationMax.z = j["rotationMax"][2].get<float>();
+                }
+
+                if (j.contains("speedPos")) {
+                    containsSpeed = true;
+                    cfg.speedPos.x = j["speedPos"][0].get<float>();
+                    cfg.speedPos.y = j["speedPos"][1].get<float>();
+                    cfg.speedPos.z = j["speedPos"][2].get<float>();
+                }
+                if (j.contains("speedRot")) {
+                    containsSpeed = true;
+                    cfg.speedRot.x = j["speedRot"][0].get<float>();
+                    cfg.speedRot.y = j["speedRot"][1].get<float>();
+                    cfg.speedRot.z = j["speedRot"][2].get<float>();
+                }
+
+                if (j.contains("bBoxMinOffset")) {
+                    containsBoundingBox = true;
+                    cfg.BBoxMinOffset.x = j["bBoxMinOffset"][0].get<float>();
+                    cfg.BBoxMinOffset.y = j["bBoxMinOffset"][1].get<float>();
+                    cfg.BBoxMinOffset.z = j["bBoxMinOffset"][2].get<float>();
+                }
+                if (j.contains("bBoxMaxOffset")) {
+                    containsBoundingBox = true;
+                    cfg.BBoxMaxOffset.x = j["bBoxMaxOffset"][0].get<float>();
+                    cfg.BBoxMaxOffset.y = j["bBoxMaxOffset"][1].get<float>();
+                    cfg.BBoxMaxOffset.z = j["bBoxMaxOffset"][2].get<float>();
                 }
 
                 if (j.contains("phaseOffset")) {
@@ -821,11 +874,18 @@ namespace Bobbing {
                         for (auto cid : cfg.childrens) existing.childrens.insert(cid);
 
                         // overwrite existing
-                        if (containsMinZ) existing.minZ = cfg.minZ;
-                        if (containsMaxZ) existing.maxZ = cfg.maxZ;
-                        if (containsMinRot) existing.minRot = cfg.minRot;
-                        if (containsMaxRot) existing.maxRot = cfg.maxRot;
-                        if (containsSpeed) existing.speed = cfg.speed;
+                        if (containsMinPos) existing.positionMin = cfg.positionMin;
+                        if (containsMaxPos) existing.positionMax = cfg.positionMax;
+                        if (containsMinRot) existing.rotationMin = cfg.rotationMin;
+                        if (containsMaxRot) existing.rotationMax = cfg.rotationMax;
+                        if (containsSpeed) {
+                            existing.speedPos = cfg.speedPos;
+                            existing.speedRot = cfg.speedRot;
+                        }
+                        if (containsBoundingBox) {
+                            existing.BBoxMinOffset = cfg.BBoxMinOffset;
+                            existing.BBoxMaxOffset = cfg.BBoxMaxOffset;
+                        }
                         if (containsPhaseOffset) existing.phaseOffset = cfg.phaseOffset;
                         if (containsActorInfluence) existing.actorInfluence = cfg.actorInfluence;
 
@@ -842,28 +902,57 @@ namespace Bobbing {
             if (filename.empty()) {
                 path = std::format("Data\\SKSE\\Plugins\\BobbingFramework\\{:08X}.json", formID);
             } else {
-                path = "Data\\SKSE\\Plugins\\BobbingFramework\\" + filename + ".json";
+                path = filename;
             }
 
-            logger::info("Saving BaseObjSwapConfig for {:08X}", formID);
+            logger::info("Saving Config for {:08X}", formID);
 
             nlohmann::json j;
             j["FormID"] = Utils::FormIDToString(formID);
 
-            j["minZ"] = cfg.minZ;
-            j["maxZ"] = cfg.maxZ;
+            BobbingConfig defaultCfg;
 
-            j["minRot"] = {cfg.minRot.x, cfg.minRot.y, cfg.minRot.z};
-            j["maxRot"] = {cfg.maxRot.x, cfg.maxRot.y, cfg.maxRot.z};
-
-            j["speed"] = cfg.speed;
-            j["phaseOffset"] = cfg.phaseOffset;
-            j["actorInfluence"] = cfg.actorInfluence;
-
-            j["children"] = nlohmann::json::array();
-            for (const auto& entry : cfg.childrens) {
-                j["children"].push_back(Utils::FormIDToString(entry));
+            if (cfg.positionMin != defaultCfg.positionMin) {
+                j["positionMin"] = {cfg.positionMin.x, cfg.positionMin.y, cfg.positionMin.z};
             }
+            if (cfg.positionMax != defaultCfg.positionMax) {
+                j["positionMax"] = {cfg.positionMax.x, cfg.positionMax.y, cfg.positionMax.z};
+            }
+            if (cfg.rotationMin != defaultCfg.rotationMin) {
+                j["rotationMin"] = {cfg.rotationMin.x, cfg.rotationMin.y, cfg.rotationMin.z};
+            }
+            if (cfg.rotationMax != defaultCfg.rotationMax) {
+                j["rotationMax"] = {cfg.rotationMax.x, cfg.rotationMax.y, cfg.rotationMax.z};
+            }
+
+            if (cfg.BBoxMinOffset != defaultCfg.BBoxMinOffset) {
+                j["bBoxMinOffset"] = {cfg.BBoxMinOffset.x, cfg.BBoxMinOffset.y, cfg.BBoxMinOffset.z};
+            }
+            if (cfg.BBoxMaxOffset != defaultCfg.BBoxMaxOffset) {
+                j["bBoxMaxOffset"] = {cfg.BBoxMaxOffset.x, cfg.BBoxMaxOffset.y, cfg.BBoxMaxOffset.z};
+            }
+
+            if (cfg.speedPos != defaultCfg.speedPos) {
+                j["speedPos"] = {cfg.speedPos.x, cfg.speedPos.y, cfg.speedPos.z};
+            }
+            if (cfg.speedRot != defaultCfg.speedRot) {
+                j["speedRot"] = {cfg.speedRot.x, cfg.speedRot.y, cfg.speedRot.z};
+            }
+
+            if (cfg.phaseOffset != defaultCfg.phaseOffset) {
+                j["phaseOffset"] = cfg.phaseOffset;
+            }
+            if (cfg.actorInfluence != defaultCfg.actorInfluence) {
+                j["actorInfluence"] = cfg.actorInfluence;
+            }
+
+            if (!cfg.childrens.empty()) {
+                j["children"] = nlohmann::json::array();
+                for (const auto& entry : cfg.childrens) {
+                    j["children"].push_back(Utils::FormIDToString(entry));
+                }
+            }
+
             std::ofstream file(path);
             if (!file.is_open()) {
                 logger::error("Failed to open file for writing: {}", path);
@@ -882,5 +971,6 @@ namespace Bobbing {
         std::shared_mutex pendingChildrenMutex;
         std::unordered_map<RE::FormID, RE::FormID> pendingChildren;  // child formID -> parent formID
 
+        float time{0.0f};
     };
 }

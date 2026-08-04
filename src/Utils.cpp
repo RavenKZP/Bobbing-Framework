@@ -172,6 +172,10 @@ namespace Math {
         return R * A;
     }
 
+    RE::NiPoint3 LinAlg::Geometry::Rotate(const RE::NiPoint3& A, const RE::NiMatrix3& angles) {
+        return angles * A;
+    }
+
     LinAlg::Geometry::Geometry(const RE::TESObjectREFR* obj) {
         this->obj = obj;
         EachGeometry(obj, [this](const RE::BSGeometry* o3d, RE::BSGraphics::TriShape* triShape) -> void {
@@ -329,36 +333,63 @@ namespace Utils {
         }
         auto [min, max] = min_max;
         */
-        const auto center = GetPosition(a_obj);
+        auto center = a_obj->GetPosition();
         auto min = a_obj->GetBoundMin();
         auto max = a_obj->GetBoundMax();
 
-
-        min = center + min;
-        max = center + max;
-
         RE::NiPoint3 obj_angle = a_obj->GetAngle();
 
-        /*
         if (auto obj3D = a_obj->Get3D()) {
-            RE::NiPoint3 modelAngle;
-            if (obj3D->world.rotate.ToEulerAnglesXYZ(modelAngle)) {
-                obj_angle = modelAngle;
-            }
+            auto modelAngle = obj3D->local.rotate;
+            center = obj3D->world.translate;
+
+            min = center + min;
+            max = center + max;
+
+            const auto v1 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, min.y, min.z) - center, modelAngle) + center;
+            const auto v2 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, min.y, min.z) - center, modelAngle) + center;
+            const auto v3 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, max.y, min.z) - center, modelAngle) + center;
+            const auto v4 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, max.y, min.z) - center, modelAngle) + center;
+
+            const auto v5 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, min.y, max.z) - center, modelAngle) + center;
+            const auto v6 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, min.y, max.z) - center, modelAngle) + center;
+            const auto v7 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, max.y, max.z) - center, modelAngle) + center;
+            const auto v8 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, max.y, max.z) - center, modelAngle) + center;
+
+            return {v1, v2, v3, v4, v5, v6, v7, v8};
+        } else {
+
+            min = center + min;
+            max = center + max;
+
+            const auto v1 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, min.y, min.z) - center, obj_angle) + center;
+            const auto v2 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, min.y, min.z) - center, obj_angle) + center;
+            const auto v3 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, max.y, min.z) - center, obj_angle) + center;
+            const auto v4 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, max.y, min.z) - center, obj_angle) + center;
+
+            const auto v5 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, min.y, max.z) - center, obj_angle) + center;
+            const auto v6 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, min.y, max.z) - center, obj_angle) + center;
+            const auto v7 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, max.y, max.z) - center, obj_angle) + center;
+            const auto v8 =
+                Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, max.y, max.z) - center, obj_angle) + center;
+
+            return {v1, v2, v3, v4, v5, v6, v7, v8};
         }
-        */
-
-        const auto v1 = Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, min.y, min.z) - center, obj_angle) + center;
-        const auto v2 = Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, min.y, min.z) - center, obj_angle) + center;
-        const auto v3 = Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, max.y, min.z) - center, obj_angle) + center;
-        const auto v4 = Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, max.y, min.z) - center, obj_angle) + center;
-
-        const auto v5 = Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, min.y, max.z) - center, obj_angle) + center;
-        const auto v6 = Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, min.y, max.z) - center, obj_angle) + center;
-        const auto v7 = Math::LinAlg::Geometry::Rotate(RE::NiPoint3(max.x, max.y, max.z) - center, obj_angle) + center;
-        const auto v8 = Math::LinAlg::Geometry::Rotate(RE::NiPoint3(min.x, max.y, max.z) - center, obj_angle) + center;
-
-        return {v1, v2, v3, v4, v5, v6, v7, v8};
     }
 
     static RE::bhkRigidBody* GetRigidBody(const RE::TESObjectREFR* refr) {
@@ -390,4 +421,12 @@ namespace Utils {
         newPosition *= havockToSkyrimConversionRate;
         return newPosition;
     }
-}
+
+    float RandomFloat(float min, float max) {
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> dis(min, max);
+        return dis(gen);
+    }
+
+}  // namespace Utils
