@@ -11,7 +11,7 @@ namespace Hooks {
             if (conf->EnableTimeLogging) {
                 auto end = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> elapsed = end - start;
-                logger::info("BobbingFramework Update {}ms lastFrame: {}ms", elapsed.count(), a_delta * 1000);
+                logger::info("BobbingFramework Update {}ms", elapsed.count());
             }
         }
         Update_(a_this, a_delta);
@@ -28,7 +28,7 @@ namespace Hooks {
             if (conf->EnableTimeLogging) {
                 auto end = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> elapsed = end - start;
-                logger::info("BobbingFramework Update {}ms lastFrame: {}ms", elapsed.count(), deltaTime.count());
+                logger::info("BobbingFramework Update {}ms", elapsed.count());
             }
             lastFrameTime = start;
         }

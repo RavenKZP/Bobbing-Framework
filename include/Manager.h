@@ -539,18 +539,20 @@ namespace Bobbing {
                         RE::hkVector4 LinearVelocity;
                         controller->GetLinearVelocityImpl(LinearVelocity);
                         auto currentState = controller->context.currentState;
+                        auto currentSwimmingState = Actor->actorState1.swimming;
                         Actor->SetPosition(newActorPos, true);
                         Actor->SetAngle(newActorRot);
 
                         // Forward the volicity, so actor keeps moving in the same direction
                         controller->SetLinearVelocityImpl(LinearVelocity);
-                        // Forward the sate
-                        // SetPosition(newActorPos, true), is setting the state to kOnAir
+                        // Forward the sates
+                        // SetPosition(newActorPos, true), is setting the state to kOnAir and swimming
                         controller->context.currentState = currentState;
 
                         if (currentState == RE::hkpCharacterStateType::kInAir) {
                             FixInAir(Actor->GetHandle());
                         }
+                        Actor->actorState1.swimming = currentSwimmingState;
                     }
 
                     ++ActorIt;

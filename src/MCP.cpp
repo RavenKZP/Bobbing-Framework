@@ -156,7 +156,7 @@ namespace MCP {
 
                 if (ImGuiMCP::Button("Reset Rotation")) {
                     configCreator.rotationMin = {-0.01f, -0.01f, -0.01f};
-                    configCreator.rotationMin = {0.01f, 0.01f, 0.01f};
+                    configCreator.rotationMax = {0.01f, 0.01f, 0.01f};
                 }
 
                 if (ImGuiMCP::CollapsingHeader("Advanced Options")) {
@@ -165,12 +165,18 @@ namespace MCP {
                     ImGuiMCP::SliderFloat3("Rotation Speed;", &configCreator.speedRot.x, 0.0f, 5.0f);
                     ImGuiMCP::InputFloat3("Rotation Speed:", &configCreator.speedRot.x);
                     if (ImGuiMCP::Button("Randomize Speeds")) {
-                        configCreator.speedPos.x = Utils::RandomFloat(0.9f, 1.1f);
-                        configCreator.speedPos.y = Utils::RandomFloat(0.9f, 1.1f);
-                        configCreator.speedPos.z = Utils::RandomFloat(0.9f, 1.1f);
-                        configCreator.speedRot.x = Utils::RandomFloat(0.9f, 1.1f);
-                        configCreator.speedRot.y = Utils::RandomFloat(0.9f, 1.1f);
-                        configCreator.speedRot.z = Utils::RandomFloat(0.9f, 1.1f);
+                        configCreator.speedPos.x =
+                            Utils::RandomFloat(configCreator.speedPos.x * 0.9f, configCreator.speedPos.x * 1.1f);
+                        configCreator.speedPos.y =
+                            Utils::RandomFloat(configCreator.speedPos.y * 0.9f, configCreator.speedPos.y * 1.1f);
+                        configCreator.speedPos.z =
+                            Utils::RandomFloat(configCreator.speedPos.z * 0.9f, configCreator.speedPos.z * 1.1f);
+                        configCreator.speedRot.x =
+                            Utils::RandomFloat(configCreator.speedRot.x * 0.9f, configCreator.speedRot.x * 1.1f);
+                        configCreator.speedRot.y =
+                            Utils::RandomFloat(configCreator.speedRot.y * 0.9f, configCreator.speedRot.y * 1.1f);
+                        configCreator.speedRot.z =
+                            Utils::RandomFloat(configCreator.speedRot.z * 0.9f, configCreator.speedRot.z * 1.1f);
                     }
                     ImGuiMCP::SameLine();
                     if (ImGuiMCP::Button("Reset Speeds")) {
