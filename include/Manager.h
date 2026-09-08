@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Utils.h"
 #include "Settings.h"
+#include "Raycast.h"
 
 #include "REX/REX.h"
 
@@ -53,6 +54,19 @@ struct BobbingConfig {
     std::set<RE::FormID> childrens;
     std::string filePath;
 };
+
+static RE::NiObject* GetActor3d(RE::Actor* refr) {
+    if (!refr) {
+        return nullptr;
+    }
+    if (!refr->loadedData) {
+        return nullptr;
+    }
+    if (!refr->loadedData->data3D) {
+        return nullptr;
+    }
+    return refr->loadedData->data3D.get();
+}
 
 namespace Bobbing {
     class Manager : public REX::Singleton<Manager> {
@@ -401,7 +415,8 @@ namespace Bobbing {
                 }
 
                 // WAVE
-                float phase = ((parentRefFormID % 10) / 10.0f) + cfg.phaseOffset;
+                uint32_t localID = parentRefFormID & 0xFFF;
+                float phase = ((localID % 100) / 100.0f) + cfg.phaseOffset;
 
                 RE::NiPoint3 posTimes = cfg.speedPos * time;
                 RE::NiPoint3 rotTimes = cfg.speedRot * time;
@@ -522,37 +537,68 @@ namespace Bobbing {
                         continue;
                     }
                     if (Actor->IsInJumpState()) {
+                        logger::debug("Skipping {} IsInJumpState", Actor->GetName());
                         ++ActorIt;
                         continue;
                     }
 
-                    RE::NiPoint3 actorWorldPos = Actor->GetPosition();
-                    RE::NiPoint3 localOffset = oldRefRot.Transpose() * (actorWorldPos - oldRefPos);
-                    RE::NiPoint3 newActorPos = newRefPos + (newRefRot * localOffset);
-
-                    // Actors should never be rotated in X and Y, only Z (yaw) is allowed
-                    RE::NiPoint3 newActorRot = Actor->GetAngle();
-                    float deltaYaw = rot.z - parent.prevRot.z;
-                    newActorRot.z += deltaYaw;
-
                     if (RE::bhkCharacterController* controller = Actor->GetCharController()) {
-                        RE::hkVector4 LinearVelocity;
-                        controller->GetLinearVelocityImpl(LinearVelocity);
-                        auto currentState = controller->context.currentState;
-                        auto currentSwimmingState = Actor->actorState1.swimming;
-                        Actor->SetPosition(newActorPos, true);
+                        RE::hkpCharacterStateType currentState = controller->context.currentState;
+
+                        auto* proxyController = static_cast<RE::bhkCharProxyController*>(controller);
+                        float earlyOutDistance = proxyController->proxy.ignoredCollisionStartCollector.earlyOutDistance;
+                        RE::hkVector4 forwardVec = controller->forwardVec;
+
+                        RE::NiPoint3 actorWorldPos = Actor->GetPosition();
+                        RE::NiPoint3 localOffset = oldRefRot.Transpose() * (actorWorldPos - oldRefPos);
+                        RE::NiPoint3 newActorPos = newRefPos + (newRefRot * localOffset);
+
+                        // Actors should never be rotated in X and Y, only Z (yaw) is allowed
+                        RE::NiPoint3 newActorRot = Actor->GetAngle();
+                        float deltaYaw = rot.z - parent.prevRot.z;
+                        newActorRot.z += deltaYaw;
+
                         Actor->SetAngle(newActorRot);
+                        // Don't update CharController here, we'll do it manually
+                        Actor->SetPosition(newActorPos, false);
 
-                        // Forward the volicity, so actor keeps moving in the same direction
-                        controller->SetLinearVelocityImpl(LinearVelocity);
-                        // Forward the sates
-                        // SetPosition(newActorPos, true), is setting the state to kOnAir and swimming
-                        controller->context.currentState = currentState;
-
+                        // Manual update of CharController, this way we minimalize side changes
+                        RE::hkVector4 hkPos;
+                        hkPos.quad.m128_f32[0] = newActorPos.x * 0.0142875f;
+                        hkPos.quad.m128_f32[1] = newActorPos.y * 0.0142875f;
+                        hkPos.quad.m128_f32[2] = newActorPos.z * 0.0142875f;
+                        hkPos.quad.m128_f32[3] = 0.0f;
+                        controller->SetPositionImpl(hkPos, true, false);
+                        
                         if (currentState == RE::hkpCharacterStateType::kInAir) {
-                            FixInAir(Actor->GetHandle());
+
+                            auto actor3d = GetActor3d(Actor);
+
+                            const auto evaluator = [actor3d](RE::NiAVObject* mesh) {
+                                if (mesh == actor3d) {
+                                    return false;
+                                }
+                                return true;
+                            };
+
+                            auto result = RayCast::Cast(Actor, evaluator);
+                            if (result.object) {
+                                auto height = Actor->GetPositionZ() - result.position.z;
+                                logger::debug("Actor {}, standing on {:08X}, above {}", Actor->GetName(),
+                                              result.object->GetFormID(), height);
+                                if (height < 50) {
+                                    currentState = RE::hkpCharacterStateType::kOnGround;
+                                }
+                            } else {
+                                logger::debug("Actor {}, RayCast didn't hit anything", Actor->GetName());
+                            }
                         }
-                        Actor->actorState1.swimming = currentSwimmingState;
+                        
+                        controller->context.currentState = currentState;
+                        controller->forwardVec = forwardVec;
+                        proxyController->proxy.ignoredCollisionStartCollector.earlyOutDistance = earlyOutDistance;
+                    
+                        logger::debug("Actor {} currentState {}", Actor->GetName(), currentState);
                     }
 
                     ++ActorIt;

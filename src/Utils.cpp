@@ -120,11 +120,11 @@ namespace Math {
         return orthogonal_vertex;
     }
 
-    UINT GetBufferLength(RE::ID3D11Buffer* reBuffer) {
-        const auto buffer = reinterpret_cast<ID3D11Buffer*>(reBuffer);
-        D3D11_BUFFER_DESC bufferDesc = {};
+    UINT GetBufferLength(REX::W32::ID3D11Buffer* reBuffer) {
+        const auto buffer = reinterpret_cast<REX::W32::ID3D11Buffer*>(reBuffer);
+        REX::W32::D3D11_BUFFER_DESC bufferDesc = {};
         buffer->GetDesc(&bufferDesc);
-        return bufferDesc.ByteWidth;
+        return bufferDesc.byteWidth;
     }
 
     void EachGeometry(const RE::TESObjectREFR* obj,

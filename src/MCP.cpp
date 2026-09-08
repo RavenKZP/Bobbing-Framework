@@ -26,7 +26,9 @@ namespace MCP {
 
     void __stdcall RenderConfig() {
         auto* cfg = Config::GetSingleton();
-        ImGuiMCP::Checkbox("Mod Active", &cfg->ModActive);
+        if (ImGuiMCP::Checkbox("Mod Active", &cfg->ModActive)) {
+            Bobbing::Manager::GetSingleton()->ResetBobbing();
+        }
         ImGuiMCP::Checkbox("Enable Time Logging", &cfg->EnableTimeLogging);
     }
 

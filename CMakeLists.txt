@@ -18,7 +18,7 @@ cmake_minimum_required(VERSION 3.21)
 # Set your project name. This will be the name of your SKSE .dll file.
 set(AUTHOR_NAME "RavenKZP")
 set(PRODUCT_NAME "BobbingFramework")
-project(${PRODUCT_NAME} VERSION 0.1.0.0 LANGUAGES CXX)
+project(${PRODUCT_NAME} VERSION 0.3.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
@@ -73,6 +73,11 @@ add_commonlibsse_plugin(
   AUTHOR AUTHOR_NAME
   SOURCES ${headers} ${sources}
 )
+
+if(MSVC)
+  target_link_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:RelWithDebInfo>:/OPT:REF>")
+endif()
+
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23) # <--- use C++23 standard
 target_precompile_headers(${PROJECT_NAME} PRIVATE include/PCH.h) # <--- PCH.h is required!
 target_include_directories(
