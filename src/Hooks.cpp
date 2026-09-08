@@ -12,13 +12,13 @@ namespace Hooks {
             if (!calendar) {
                 return;
             }
-            static auto lastGameTime = 0.0f;
-            auto GameTime = calendar->GetDaysPassed();
+            static auto lastGameMinutes = 0.0f;
+            auto GameMinutes = calendar->GetMinutes();
 
             static auto lastFrameTime = std::chrono::high_resolution_clock::now();
             auto FrameTime = std::chrono::high_resolution_clock::now();
 
-            if (GameTime != lastGameTime) {
+            if (GameMinutes != lastGameMinutes) {
                 std::chrono::duration<float, std::milli> deltaTime = FrameTime - lastFrameTime;
                 Bobbing::Manager::GetSingleton()->Update(deltaTime.count() / 1000.0f);
                 if (conf->EnableTimeLogging) {
@@ -28,7 +28,7 @@ namespace Hooks {
                 }
             }
             lastFrameTime = FrameTime;
-            lastGameTime = GameTime;
+            lastGameMinutes = GameMinutes;
         }
     }
 
