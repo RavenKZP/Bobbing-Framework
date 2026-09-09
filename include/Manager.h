@@ -86,6 +86,15 @@ namespace Bobbing {
             return pendingChildren.contains(formID);
         }
 
+        bool IsPlayerOnboard() {
+            bool res = false;
+            if (PlayerOnboard) {
+                res = true;
+                PlayerOnboard = false;
+            }
+            return res;
+        }
+
         BobbingConfig GetConfig(RE::FormID formID) {
             std::shared_lock lock(configsMutex);
             auto it = configs.find(formID);
@@ -593,6 +602,10 @@ namespace Bobbing {
                                 logger::debug("Actor {}, RayCast didn't hit anything", Actor->GetName());
                             }
                         }
+                        if (Actor->IsPlayerRef()) {
+                            // Player ONBOARD! check standing before player update function
+                            PlayerOnboard = true;
+                        }
                         
                         controller->context.currentState = currentState;
                         controller->forwardVec = forwardVec;
@@ -1020,5 +1033,6 @@ namespace Bobbing {
         std::unordered_map<RE::FormID, RE::FormID> pendingChildren;  // child formID -> parent formID
 
         float time{0.0f};
+        bool PlayerOnboard = false;
     };
 }

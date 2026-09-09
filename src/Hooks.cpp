@@ -4,6 +4,49 @@
 
 namespace Hooks {
 
+    void UpdateHook::Update(RE::Actor* a_this, float a_delta) {
+        auto* conf = Config::GetSingleton();
+        if (conf->ModActive) {
+            // For VR use Player Update Hook
+            if (REL::Module::IsVR()) {
+                auto start = std::chrono::high_resolution_clock::now();
+                Bobbing::Manager::GetSingleton()->Update(a_delta);
+                if (conf->EnableTimeLogging) {
+                    auto end = std::chrono::high_resolution_clock::now();
+                    std::chrono::duration<double, std::milli> elapsed = end - start;
+                    logger::info("BobbingFramework Update {}ms", elapsed.count());
+                }
+            }
+            if (Bobbing::Manager::GetSingleton()->IsPlayerOnboard()) {
+                if (RE::bhkCharacterController* controller = a_this->GetCharController()) {
+                    if (controller->context.currentState == RE::hkpCharacterStateType::kInAir) {
+                        auto actor3d = GetActor3d(a_this);
+
+                        const auto evaluator = [actor3d](RE::NiAVObject* mesh) {
+                            if (mesh == actor3d) {
+                                return false;
+                            }
+                            return true;
+                        };
+
+                        auto result = RayCast::Cast(a_this, evaluator);
+                        if (result.object) {
+                            auto height = a_this->GetPositionZ() - result.position.z;
+                            logger::debug("Actor {}, standing on {:08X}, above {}", a_this->GetName(),
+                                          result.object->GetFormID(), height);
+                            if (height < 50) {
+                                controller->context.currentState = RE::hkpCharacterStateType::kOnGround;
+                            }
+                        } else {
+                            logger::debug("Actor {}, RayCast didn't hit anything", a_this->GetName());
+                        }
+                    }
+                }
+            }
+        }
+        Update_(a_this, a_delta);
+    }
+
     void DrawHook::thunk(std::uint32_t a_timer) {
         func(a_timer);
         auto* conf = Config::GetSingleton();
@@ -12,13 +55,11 @@ namespace Hooks {
             if (!calendar) {
                 return;
             }
-            static auto lastGameMinutes = 0.0f;
-            auto GameMinutes = calendar->GetMinutes();
 
             static auto lastFrameTime = std::chrono::high_resolution_clock::now();
             auto FrameTime = std::chrono::high_resolution_clock::now();
 
-            if (GameMinutes != lastGameMinutes) {
+            if (!RE::UI::GetSingleton()->GameIsPaused()) {
                 std::chrono::duration<float, std::milli> deltaTime = FrameTime - lastFrameTime;
                 Bobbing::Manager::GetSingleton()->Update(deltaTime.count() / 1000.0f);
                 if (conf->EnableTimeLogging) {
@@ -28,7 +69,6 @@ namespace Hooks {
                 }
             }
             lastFrameTime = FrameTime;
-            lastGameMinutes = GameMinutes;
         }
     }
 
