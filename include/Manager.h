@@ -251,6 +251,7 @@ namespace Bobbing {
             }
 
             std::vector<RE::NiPoint3> actorPositions;
+            std::vector<RE::TESObjectREFR*> NearbyRefs;
 
             RE::TES::GetSingleton()->ForEachReferenceInRange(center, radius, [&](RE::TESObjectREFR* other) {
                 if (!other || other == ref || other->IsDisabled()) {
@@ -273,12 +274,16 @@ namespace Bobbing {
                     }
                 }
 
-                if (auto other3D = other->Get3D()) {
-                    ApplyImpulseToNode(other3D, {0, 0, 0, 0});
-                }
+                NearbyRefs.push_back(other);
 
                 return RE::BSContainer::ForEachResult::kContinue;
             });
+
+            for (auto& other : NearbyRefs) {
+                if (auto other3D = other->Get3D()) {
+                    ApplyImpulseToNode(other3D, {0, 0, 0, 0});
+                }
+            }
 
             RE::NiPoint3 returnedCenter = ref->GetPosition();  // fallback
             if (!actorPositions.empty()) {
@@ -552,7 +557,11 @@ namespace Bobbing {
                     }
 
                     if (RE::bhkCharacterController* controller = Actor->GetCharController()) {
-                        RE::hkpCharacterStateType currentState = controller->context.currentState;
+                        if (controller->context.currentState == RE::hkpCharacterStateType::kJumping) {
+                            logger::debug("Skipping {} IsJumping", Actor->GetName());
+                            ++ActorIt;
+                            continue;
+                        }
 
                         auto* proxyController = static_cast<RE::bhkCharProxyController*>(controller);
                         float earlyOutDistance = proxyController->proxy.ignoredCollisionStartCollector.earlyOutDistance;
@@ -579,39 +588,16 @@ namespace Bobbing {
                         hkPos.quad.m128_f32[3] = 0.0f;
                         controller->SetPositionImpl(hkPos, true, false);
                         
-                        if (currentState == RE::hkpCharacterStateType::kInAir) {
-
-                            auto actor3d = GetActor3d(Actor);
-
-                            const auto evaluator = [actor3d](RE::NiAVObject* mesh) {
-                                if (mesh == actor3d) {
-                                    return false;
-                                }
-                                return true;
-                            };
-
-                            auto result = RayCast::Cast(Actor, evaluator);
-                            if (result.object) {
-                                auto height = Actor->GetPositionZ() - result.position.z;
-                                logger::debug("Actor {}, standing on {:08X}, above {}", Actor->GetName(),
-                                              result.object->GetFormID(), height);
-                                if (height < 50) {
-                                    currentState = RE::hkpCharacterStateType::kOnGround;
-                                }
-                            } else {
-                                logger::debug("Actor {}, RayCast didn't hit anything", Actor->GetName());
-                            }
-                        }
                         if (Actor->IsPlayerRef()) {
                             // Player ONBOARD! check standing before player update function
                             PlayerOnboard = true;
                         }
                         
-                        controller->context.currentState = currentState;
+                        // Restore forwardVec and earlyOutDistance 
+                        // Digging into the SetPositionImpl code shows that thease two values are modified during the
+                        // call, and we want to keep them consistent across frames
                         controller->forwardVec = forwardVec;
                         proxyController->proxy.ignoredCollisionStartCollector.earlyOutDistance = earlyOutDistance;
-                    
-                        logger::debug("Actor {} currentState {}", Actor->GetName(), currentState);
                     }
 
                     ++ActorIt;
